@@ -18,13 +18,11 @@ import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Transaction
 import com.example.spendsense.utils.CurrencyHelper
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.Paragraph
 import com.itextpdf.layout.element.Table
-import com.itextpdf.layout.properties.TextAlignment
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.File
@@ -64,6 +62,12 @@ class ReportsFragment : Fragment() {
         return view
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Reload data in case currency changed or new transactions added
+        view?.let { loadReportsData(it) }
+    }
+
     private fun loadReportsData(view: View) {
         if (userId == -1) return
 
@@ -79,66 +83,107 @@ class ReportsFragment : Fragment() {
     }
 
     private fun calculateReports(view: View, transactions: List<Transaction>) {
-        // ADD THIS
-        val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(requireContext())
+        val symbol = CurrencyHelper.getSymbol(requireContext())
 
         // 1. Totals
         totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
         totalExpense = transactions.filter { it.type == "expense" }.sumOf { it.amount }
         val savings = totalIncome - totalExpense
 
-        // UPDATE THESE with symbol
         view.findViewById<TextView>(R.id.tv_income_val).text = "$symbol${String.format("%.0f", totalIncome)}"
         view.findViewById<TextView>(R.id.tv_expense_val).text = "$symbol${String.format("%.0f", totalExpense)}"
         view.findViewById<TextView>(R.id.tv_savings_val).text = "$symbol${String.format("%.0f", savings)}"
 
-        // 2. Chart Bar
+        // 2. Chart Bar Logic
         view.findViewById<TextView>(R.id.tv_chart_income).text = "$symbol${String.format("%.0f", totalIncome)}"
         view.findViewById<TextView>(R.id.tv_chart_expense).text = "$symbol${String.format("%.0f", totalExpense)}"
 
-        // ... (Chart logic stays same) ...
+        val expenseBar = view.findViewById<View>(R.id.view_expense_bar)
+        val expenseSpace = view.findViewById<Space>(R.id.view_expense_space)
 
-        // 3. Categories Loop
-        // ...
-        val categoryContainer = view.findViewById<LinearLayout>(R.id.ll_reports_categories)
-        categoryContainer.removeAllViews() // Now it works
+        if (totalIncome > 0) {
+            val expenseWeight = (totalExpense / totalIncome).toFloat()
+            val paramsBar = expenseBar.layoutParams as LinearLayout.LayoutParams
+            paramsBar.weight = expenseWeight.coerceAtMost(1.0f)
+            expenseBar.layoutParams = paramsBar
 
-        for ((name, amount) in categoryData) {
-            val percent = if (totalExpense > 0) (amount / totalExpense * 100).toInt() else 0
-            val row = TextView(context)
-            // UPDATE THIS
-            row.text = "$name: $symbol${String.format("%.0f", amount)} ($percent%)"
-            row.textSize = 14f
-            row.setPadding(0, 8, 0, 8)
-            categoryContainer.addView(row)
+            val paramsSpace = expenseSpace.layoutParams as LinearLayout.LayoutParams
+            paramsSpace.weight = (1.0f - expenseWeight).coerceAtLeast(0.0f)
+            expenseSpace.layoutParams = paramsSpace
+        } else {
+            // Handle 0 income case (avoid divide by zero visual)
+            val paramsBar = expenseBar.layoutParams as LinearLayout.LayoutParams
+            paramsBar.weight = if (totalExpense > 0) 1.0f else 0.0f
+            expenseBar.layoutParams = paramsBar
         }
 
-        // 4. Top Days Loop
-        // ...
+        // 3. Calculate Category Data
+        val expenses = transactions.filter { it.type == "expense" }
+        categoryData = expenses.groupBy { it.categoryName }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+            .toList()
+            .sortedByDescending { it.second }
 
-        // DEFINE VARIABLE HERE
+        // Populate Category List
+        val categoryContainer = view.findViewById<LinearLayout>(R.id.ll_reports_categories)
+        categoryContainer.removeAllViews()
+
+        if (categoryData.isEmpty()) {
+            val emptyText = TextView(context)
+            emptyText.text = "No expenses recorded yet"
+            emptyText.setPadding(0, 16, 0, 16)
+            categoryContainer.addView(emptyText)
+        } else {
+            for ((name, amount) in categoryData) {
+                val percent = if (totalExpense > 0) (amount / totalExpense * 100).toInt() else 0
+                val row = TextView(context)
+                row.text = "$name: $symbol${String.format("%.0f", amount)} ($percent%)"
+                row.textSize = 14f
+                row.setPadding(0, 8, 0, 8)
+                row.setTextColor(resources.getColor(android.R.color.black, null))
+                categoryContainer.addView(row)
+            }
+        }
+
+        // 4. Calculate Top Days Data
+        val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+        topDaysData = expenses.groupBy { dayFormat.format(Date(it.date)) }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(3)
+
+        // Populate Top Days List
         val daysContainer = view.findViewById<LinearLayout>(R.id.ll_top_days)
-        daysContainer.removeAllViews() // Now it works
+        daysContainer.removeAllViews()
 
-        for ((date, amount) in topDaysData) {
-            val row = TextView(context)
-            // UPDATE THIS
-            row.text = "$date: $symbol${String.format("%.0f", amount)}"
-            row.textSize = 14f
-            row.setPadding(0, 8, 0, 8)
-            daysContainer.addView(row)
+        if (topDaysData.isEmpty()) {
+            val emptyText = TextView(context)
+            emptyText.text = "No activity yet"
+            emptyText.setPadding(0, 16, 0, 16)
+            daysContainer.addView(emptyText)
+        } else {
+            for ((date, amount) in topDaysData) {
+                val row = TextView(context)
+                row.text = "$date: $symbol${String.format("%.0f", amount)}"
+                row.textSize = 14f
+                row.setPadding(0, 8, 0, 8)
+                row.setTextColor(resources.getColor(android.R.color.black, null))
+                daysContainer.addView(row)
+            }
         }
     }
 
     private fun shareReport() {
+        val symbol = CurrencyHelper.getSymbol(requireContext())
         val reportText = """
             📊 SpendSense Report
-            Income: ₹$totalIncome
-            Expense: ₹$totalExpense
-            Savings: ₹${totalIncome - totalExpense}
+            Income: $symbol$totalIncome
+            Expense: $symbol$totalExpense
+            Savings: $symbol${totalIncome - totalExpense}
             
             Top Categories:
-            ${categoryData.take(3).joinToString("\n") { "${it.first}: ₹${it.second}" }}
+            ${categoryData.take(3).joinToString("\n") { "${it.first}: $symbol${it.second}" }}
         """.trimIndent()
 
         val shareIntent = Intent().apply {
@@ -152,7 +197,7 @@ class ReportsFragment : Fragment() {
 
     private fun exportToPdf() {
         try {
-            val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(requireContext())
+            val symbol = CurrencyHelper.getSymbol(requireContext())
 
             val fileName = "SpendSense_Report_${System.currentTimeMillis()}.pdf"
             val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
@@ -160,35 +205,27 @@ class ReportsFragment : Fragment() {
             val pdfDocument = PdfDocument(pdfWriter)
             val document = Document(pdfDocument)
 
-            // Title
             document.add(Paragraph("SpendSense Report").setFontSize(24f).setBold())
-
-            // Financial Summary
             document.add(Paragraph("\nFinancial Summary").setFontSize(18f).setBold())
-            document.add(Paragraph("Income: $symbol${String.format("%.0f", totalIncome)}"))
-            document.add(Paragraph("Expense: $symbol${String.format("%.0f", totalExpense)}"))
-            document.add(Paragraph("Savings: $symbol${String.format("%.0f", totalIncome - totalExpense)}"))
+            document.add(Paragraph("Income: $symbol$totalIncome"))
+            document.add(Paragraph("Expense: $symbol$totalExpense"))
+            document.add(Paragraph("Savings: $symbol${totalIncome - totalExpense}"))
 
-            // Spending by Category
             document.add(Paragraph("\nSpending by Category").setFontSize(18f).setBold())
-
-            val table = Table(2) // 2 Columns
+            val table = Table(2)
             table.addCell(Paragraph("Category").setBold())
             table.addCell(Paragraph("Amount").setBold())
-
             for ((name, amount) in categoryData) {
                 table.addCell(name)
-                table.addCell("$symbol${String.format("%.0f", amount)}")
+                table.addCell("$symbol$amount")
             }
             document.add(table)
 
-            // Footer
             document.add(Paragraph("\nGenerated by SpendSense").setFontSize(10f).setItalic())
 
             document.close()
             Toast.makeText(context, "PDF Saved to Downloads: $fileName", Toast.LENGTH_LONG).show()
 
-            // Open PDF logic
             try {
                 val uri = FileProvider.getUriForFile(
                     requireContext(),
@@ -200,7 +237,7 @@ class ReportsFragment : Fragment() {
                 intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 startActivity(Intent.createChooser(intent, "Open Report"))
             } catch (e: Exception) {
-                // Ignore open error if no PDF viewer installed
+                // Ignore
             }
 
         } catch (e: Exception) {
