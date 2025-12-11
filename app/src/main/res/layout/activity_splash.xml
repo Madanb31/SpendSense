@@ -23,7 +23,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/app_name"
+        android:text="Spend Sense"
         android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="#FFFFFF"
