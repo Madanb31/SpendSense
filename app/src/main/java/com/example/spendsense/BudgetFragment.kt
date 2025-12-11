@@ -1,5 +1,6 @@
 package com.example.spendsense
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -26,8 +27,10 @@ class BudgetFragment : Fragment() {
 
     private lateinit var database: AppDatabase
     private var userId: Int = -1
-
     private var customBudgets = listOf<Budget>()
+
+    // This tracks if user has manually set a limit
+    private var manualMonthlyLimit = 0.0
 
     // UI Views
     private lateinit var tvTotalBudget: TextView
@@ -45,8 +48,11 @@ class BudgetFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_budget, container, false)
 
         database = AppDatabase.getDatabase(requireContext())
-        val prefs = requireContext().getSharedPreferences("UserPrefs", android.content.Context.MODE_PRIVATE)
+        val prefs = requireContext().getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         userId = prefs.getInt("userId", -1)
+
+        // Load saved manual limit (0 if never set)
+        manualMonthlyLimit = prefs.getFloat("monthly_budget_$userId", 0f).toDouble()
 
         // Init Views
         tvTotalBudget = view.findViewById(R.id.tv_total_budget)
@@ -56,11 +62,20 @@ class BudgetFragment : Fragment() {
         tvTotalPercent = view.findViewById(R.id.tv_total_percent)
         categoryContainer = view.findViewById(R.id.ll_category_container)
 
-        // FAB
+        // 1. FAB -> Create Category Budget
         val fab = view.findViewById<FloatingActionButton>(R.id.fab_add_budget)
         fab.setOnClickListener {
             val editBudgetSheet = EditBudgetBottomSheet()
             editBudgetSheet.show(parentFragmentManager, "EditBudgetBottomSheet")
+        }
+
+        // 2. Pencil Icon -> Edit Monthly Budget
+        val editMonthlyBtn = view.findViewById<TextView>(R.id.btn_edit_monthly_budget)
+        editMonthlyBtn.setOnClickListener {
+            val sheet = EditMonthlyBudgetBottomSheet { newLimit ->
+                saveMonthlyBudget(newLimit)
+            }
+            sheet.show(parentFragmentManager, "EditMonthlyBudget")
         }
 
         return view
@@ -71,14 +86,22 @@ class BudgetFragment : Fragment() {
         loadBudgetData()
     }
 
+    private fun saveMonthlyBudget(limit: Double) {
+        manualMonthlyLimit = limit
+        val prefs = requireContext().getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        prefs.edit().putFloat("monthly_budget_$userId", limit.toFloat()).apply()
+        loadBudgetData() // Refresh UI immediately
+        Toast.makeText(context, "Monthly Budget Updated!", Toast.LENGTH_SHORT).show()
+    }
+
     private fun loadBudgetData() {
         if (userId == -1) return
 
-        lifecycleScope.launch(Dispatchers.IO) { // Run on Background Thread
-            // 1. Get Custom Budgets
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Get Category Budgets
             customBudgets = database.budgetDao().getAllBudgets(userId)
 
-            // 2. Then watch Transactions
+            // Get Transactions to calculate totals
             database.transactionDao().getAllTransactions(userId).collect { transactions ->
                 calculateBudgets(transactions)
             }
@@ -86,79 +109,87 @@ class BudgetFragment : Fragment() {
     }
 
     private suspend fun calculateBudgets(transactions: List<Transaction>) {
-        // Run calculations on Default dispatcher (CPU intensive)
         withContext(Dispatchers.Default) {
-            // 1. Calculate Income & Budget Limit
+            // 1. Determine Monthly Budget Limit
             val totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
-            // FIX: Default 0 if no income
-            val budgetLimit = if (totalIncome > 0) totalIncome * 0.60 else 0.0
+
+            val activeBudgetLimit = if (manualMonthlyLimit > 0) {
+                manualMonthlyLimit // Use user's manual setting
+            } else {
+                if (totalIncome > 0) totalIncome * 0.60 else 0.0 // Default 60% rule
+            }
 
             // 2. Calculate Total Expenses
             val expenses = transactions.filter { it.type == "expense" }
             val totalSpent = expenses.sumOf { it.amount }
-            val remaining = budgetLimit - totalSpent
-            val percentUsed = if (budgetLimit > 0) (totalSpent / budgetLimit * 100).toInt() else 0
+            val remaining = activeBudgetLimit - totalSpent
+            val percentUsed = if (activeBudgetLimit > 0) (totalSpent / activeBudgetLimit * 100).toInt() else 0
 
-            // 3. Group by Category (Name -> (Amount, Icon))
+            // 3. Category Breakdown
             val categorySpending = expenses.groupBy { it.categoryName }
                 .mapValues { entry ->
-                    val amount = entry.value.sumOf { it.amount }
+                    val amt = entry.value.sumOf { it.amount }
                     val icon = entry.value.firstOrNull()?.categoryIcon ?: "🏷️"
-                    Pair(amount, icon)
+                    Pair(amt, icon)
                 }
-                .toList()
-                .sortedByDescending { it.second.first }
 
-            // Switch to Main Thread for UI Updates
+            // 4. Switch to Main Thread
             withContext(Dispatchers.Main) {
                 if (isAdded) {
-                    updateSummaryUI(budgetLimit, totalSpent, remaining, percentUsed)
-                    updateCategoryList(categorySpending, budgetLimit)
+                    updateSummaryUI(activeBudgetLimit, totalSpent, remaining, percentUsed)
+                    updateCategoryList(categorySpending)
                 }
             }
         }
     }
 
     private fun updateSummaryUI(budgetLimit: Double, totalSpent: Double, remaining: Double, percentUsed: Int) {
-        // FIX: Use CurrencyHelper
         val symbol = CurrencyHelper.getSymbol(requireContext())
-
         tvTotalBudget.text = "$symbol${String.format("%.0f", budgetLimit)}"
         tvTotalSpent.text = "$symbol${String.format("%.0f", totalSpent)}"
-        tvTotalRemaining.text = "$symbol${String.format("%.0f", remaining)}"
+
+        // FIX: No negative remaining
+        if (remaining < 0) {
+            tvTotalRemaining.text = "Over Budget!"
+        } else {
+            tvTotalRemaining.text = "$symbol${String.format("%.0f", remaining)}"
+        }
+
         pbTotal.progress = percentUsed.coerceIn(0, 100)
         tvTotalPercent.text = "$percentUsed% of budget used"
     }
 
-    private fun updateCategoryList(categorySpending: List<Pair<String, Pair<Double, String>>>, totalBudget: Double) {
+    private fun updateCategoryList(spendingMap: Map<String, Pair<Double, String>>) {
         categoryContainer.removeAllViews()
         val symbol = CurrencyHelper.getSymbol(requireContext())
 
-        // FIX: Combine Spending Keys + Custom Budget Keys
-        val spendingMap = categorySpending.toMap() // Map<CategoryName, Pair<Amount, Icon>>
-        val allCategories = (spendingMap.keys + customBudgets.map { it.categoryName }).toSet()
+        // LOGIC CHANGE: Only iterate through CUSTOM BUDGETS
+        // We ignore categories that have spending but NO budget set.
 
-        if (allCategories.isEmpty()) return
+        if (customBudgets.isEmpty()) {
+            val emptyView = TextView(context)
+            emptyView.text = "No category budgets set.\nTap + to add one."
+            emptyView.textAlignment = View.TEXT_ALIGNMENT_CENTER
+            emptyView.setPadding(0, 32, 0, 0)
+            emptyView.setTextColor(ContextCompat.getColor(requireContext(), R.color.bottom_nav_unselected))
+            categoryContainer.addView(emptyView)
+            return
+        }
 
-        for (categoryName in allCategories) {
-            // Get spending data (or 0 if no spending)
+        for (budget in customBudgets) {
+            val categoryName = budget.categoryName
+            val limit = budget.limit
+
+            // Get actual spending for this budgeted category (or 0 if none)
             val spendingData = spendingMap[categoryName]
             val amount = spendingData?.first ?: 0.0
 
-            // Get Icon: From transaction OR lookup if no transaction
-            var iconText = spendingData?.second
-            if (iconText == null) {
-                iconText = getIconForCategory(categoryName)
-            }
+            // Icon: From spending map OR lookup manually
+            val icon = spendingData?.second ?: getIconForCategory(categoryName)
 
-            // Check Custom Budget
-            val customBudget = customBudgets.find { it.categoryName == categoryName }
-            val categoryLimit = customBudget?.limit ?: (totalBudget * 0.20)
+            val remaining = limit - amount
+            val progress = if (limit > 0) (amount / limit * 100).toInt() else 0
 
-            val categoryRemaining = categoryLimit - amount
-            val progress = if (categoryLimit > 0) (amount / categoryLimit * 100).toInt() else 0
-
-            // Inflate layout
             val itemView = LayoutInflater.from(context).inflate(R.layout.item_budget_category, categoryContainer, false)
 
             val tvName = itemView.findViewById<TextView>(R.id.tv_cat_name)
@@ -168,15 +199,15 @@ class BudgetFragment : Fragment() {
             val tvIcon = itemView.findViewById<TextView>(R.id.tv_cat_icon)
 
             tvName.text = categoryName
-            tvIcon.text = iconText
-            tvSpent.text = "$symbol${String.format("%.0f", amount)} of $symbol${String.format("%.0f", categoryLimit)}"
+            tvIcon.text = icon
+            tvSpent.text = "$symbol${String.format("%.0f", amount)} of $symbol${String.format("%.0f", limit)}"
 
-            if (categoryRemaining < 0) {
-                tvLeft.text = "$symbol${String.format("%.0f", Math.abs(categoryRemaining))} over!"
+            if (remaining < 0) {
+                tvLeft.text = "$symbol${String.format("%.0f", Math.abs(remaining))} over!"
                 tvLeft.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark))
                 pbCat.progressTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark))
             } else {
-                tvLeft.text = "$symbol${String.format("%.0f", categoryRemaining)} left"
+                tvLeft.text = "$symbol${String.format("%.0f", remaining)} left"
                 tvLeft.setTextColor(ContextCompat.getColor(requireContext(), R.color.bottom_nav_selected))
 
                 if (progress > 80) {

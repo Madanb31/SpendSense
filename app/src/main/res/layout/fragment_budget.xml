@@ -30,6 +30,7 @@
                 android:layout_marginBottom="16dp"/>
 
             <!-- Monthly Budget Summary Card -->
+            <!-- Monthly Budget Summary Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -44,13 +45,35 @@
                     android:orientation="vertical"
                     android:padding="24dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <!-- Header Row with Pencil Icon -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Monthly Budget"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:alpha="0.9"/>
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Monthly Budget"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:alpha="0.9"/>
+
+                        <!-- Edit Icon -->
+                        <TextView
+                            android:id="@+id/btn_edit_monthly_budget"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="✏️"
+                            android:textSize="18sp"
+                            android:padding="8dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"/>
+
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tv_total_budget"
@@ -60,7 +83,7 @@
                         android:textColor="#FFFFFF"
                         android:textSize="36sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="8dp"/>
+                        android:layout_marginTop="4dp"/>
 
                     <!-- Budget Stats Row -->
                     <LinearLayout
