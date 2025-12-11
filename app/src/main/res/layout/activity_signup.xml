@@ -49,6 +49,8 @@
             android:layout_marginBottom="16dp"
             app:boxBackgroundMode="outline"
             app:boxStrokeColor="#4CAF50"
+            android:textColorHint="#999999"
+            app:hintTextColor="#4CAF50"
             android:hint="Your Name">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -57,7 +59,8 @@
                 android:layout_height="wrap_content"
                 android:inputType="textPersonName"
                 android:drawableStart="@android:drawable/ic_menu_myplaces"
-                android:drawablePadding="12dp"/>
+                android:drawablePadding="12dp"
+                android:textColor="#333333"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -104,6 +107,8 @@
             android:layout_marginBottom="16dp"
             app:boxBackgroundMode="outline"
             app:boxStrokeColor="#4CAF50"
+            android:textColorHint="#999999"
+            app:hintTextColor="#4CAF50"
             android:hint="Phone Number">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -111,8 +116,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="phone"
-                android:drawableStart="@android:drawable/stat_sys_phone_call"
-                android:drawablePadding="12dp"/>
+                android:drawableStart="@android:drawable/sym_action_call"
+                android:drawablePadding="12dp"
+                android:textColor="#333333"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -123,6 +129,8 @@
             android:layout_marginBottom="24dp"
             app:boxBackgroundMode="outline"
             app:boxStrokeColor="#4CAF50"
+            android:textColorHint="#999999"
+            app:hintTextColor="#4CAF50"
             android:hint="Gmail Address">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -132,7 +140,8 @@
                 android:inputType="textEmailAddress"
                 android:drawableStart="@android:drawable/ic_dialog_email"
                 android:drawablePadding="12dp"
-                android:visibility="gone"/>
+                android:visibility="gone"
+                android:textColor="#333333"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -145,6 +154,8 @@
             app:boxBackgroundMode="outline"
             app:boxStrokeColor="#4CAF50"
             app:passwordToggleEnabled="true"
+            android:textColorHint="#999999"
+            app:hintTextColor="#4CAF50"
             android:hint="Password">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -153,7 +164,8 @@
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
                 android:drawableStart="@android:drawable/ic_lock_lock"
-                android:drawablePadding="12dp"/>
+                android:drawablePadding="12dp"
+                android:textColor="#333333"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -165,6 +177,8 @@
             app:boxBackgroundMode="outline"
             app:boxStrokeColor="#4CAF50"
             app:passwordToggleEnabled="true"
+            android:textColorHint="#999999"
+            app:hintTextColor="#4CAF50"
             android:hint="Confirm Password">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -173,7 +187,8 @@
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
                 android:drawableStart="@android:drawable/ic_lock_lock"
-                android:drawablePadding="12dp"/>
+                android:drawablePadding="12dp"
+                android:textColor="#333333"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
