@@ -79,72 +79,51 @@ class ReportsFragment : Fragment() {
     }
 
     private fun calculateReports(view: View, transactions: List<Transaction>) {
-
-        // In calculateReports()
-        val symbol = CurrencyHelper.getSymbol(requireContext())
-// ... replace all "₹" with "$symbol" ...
+        // ADD THIS
+        val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(requireContext())
 
         // 1. Totals
         totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
         totalExpense = transactions.filter { it.type == "expense" }.sumOf { it.amount }
         val savings = totalIncome - totalExpense
 
-        view.findViewById<TextView>(R.id.tv_income_val).text = "₹${String.format("%.0f", totalIncome)}"
-        view.findViewById<TextView>(R.id.tv_expense_val).text = "₹${String.format("%.0f", totalExpense)}"
-        view.findViewById<TextView>(R.id.tv_savings_val).text = "₹${String.format("%.0f", savings)}"
+        // UPDATE THESE with symbol
+        view.findViewById<TextView>(R.id.tv_income_val).text = "$symbol${String.format("%.0f", totalIncome)}"
+        view.findViewById<TextView>(R.id.tv_expense_val).text = "$symbol${String.format("%.0f", totalExpense)}"
+        view.findViewById<TextView>(R.id.tv_savings_val).text = "$symbol${String.format("%.0f", savings)}"
 
         // 2. Chart Bar
-        view.findViewById<TextView>(R.id.tv_chart_income).text = "₹${String.format("%.0f", totalIncome)}"
-        view.findViewById<TextView>(R.id.tv_chart_expense).text = "₹${String.format("%.0f", totalExpense)}"
+        view.findViewById<TextView>(R.id.tv_chart_income).text = "$symbol${String.format("%.0f", totalIncome)}"
+        view.findViewById<TextView>(R.id.tv_chart_expense).text = "$symbol${String.format("%.0f", totalExpense)}"
 
-        val expenseBar = view.findViewById<View>(R.id.view_expense_bar)
-        val expenseSpace = view.findViewById<Space>(R.id.view_expense_space)
+        // ... (Chart logic stays same) ...
 
-        if (totalIncome > 0) {
-            val expenseWeight = (totalExpense / totalIncome).toFloat()
-            val paramsBar = expenseBar.layoutParams as LinearLayout.LayoutParams
-            paramsBar.weight = expenseWeight.coerceAtMost(1.0f)
-            expenseBar.layoutParams = paramsBar
-
-            val paramsSpace = expenseSpace.layoutParams as LinearLayout.LayoutParams
-            paramsSpace.weight = (1.0f - expenseWeight).coerceAtLeast(0.0f)
-            expenseSpace.layoutParams = paramsSpace
-        }
-
-        // 3. Categories
-        val expenses = transactions.filter { it.type == "expense" }
-        categoryData = expenses.groupBy { it.categoryName }
-            .mapValues { entry -> entry.value.sumOf { it.amount } }
-            .toList()
-            .sortedByDescending { it.second }
-
+        // 3. Categories Loop
+        // ...
         val categoryContainer = view.findViewById<LinearLayout>(R.id.ll_reports_categories)
-        categoryContainer.removeAllViews()
+        categoryContainer.removeAllViews() // Now it works
 
         for ((name, amount) in categoryData) {
             val percent = if (totalExpense > 0) (amount / totalExpense * 100).toInt() else 0
-            // Just create simple text views for now to avoid layout inflation complexity inside loop
             val row = TextView(context)
-            row.text = "$name: ₹${String.format("%.0f", amount)} ($percent%)"
+            // UPDATE THIS
+            row.text = "$name: $symbol${String.format("%.0f", amount)} ($percent%)"
             row.textSize = 14f
             row.setPadding(0, 8, 0, 8)
             categoryContainer.addView(row)
         }
 
-        // 4. Top Days
-        val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
-        topDaysData = expenses.groupBy { dayFormat.format(Date(it.date)) }
-            .mapValues { entry -> entry.value.sumOf { it.amount } }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(3)
+        // 4. Top Days Loop
+        // ...
 
+        // DEFINE VARIABLE HERE
         val daysContainer = view.findViewById<LinearLayout>(R.id.ll_top_days)
-        daysContainer.removeAllViews()
+        daysContainer.removeAllViews() // Now it works
 
         for ((date, amount) in topDaysData) {
             val row = TextView(context)
-            row.text = "$date: ₹${String.format("%.0f", amount)}"
+            // UPDATE THIS
+            row.text = "$date: $symbol${String.format("%.0f", amount)}"
             row.textSize = 14f
             row.setPadding(0, 8, 0, 8)
             daysContainer.addView(row)
@@ -173,35 +152,60 @@ class ReportsFragment : Fragment() {
 
     private fun exportToPdf() {
         try {
+            val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(requireContext())
+
             val fileName = "SpendSense_Report_${System.currentTimeMillis()}.pdf"
             val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
             val pdfWriter = PdfWriter(file)
             val pdfDocument = PdfDocument(pdfWriter)
             val document = Document(pdfDocument)
 
+            // Title
             document.add(Paragraph("SpendSense Report").setFontSize(24f).setBold())
-            document.add(Paragraph("\nFinancial Summary").setFontSize(18f).setBold())
-            document.add(Paragraph("Income: ₹$totalIncome"))
-            document.add(Paragraph("Expense: ₹$totalExpense"))
-            document.add(Paragraph("Savings: ₹${totalIncome - totalExpense}"))
 
+            // Financial Summary
+            document.add(Paragraph("\nFinancial Summary").setFontSize(18f).setBold())
+            document.add(Paragraph("Income: $symbol${String.format("%.0f", totalIncome)}"))
+            document.add(Paragraph("Expense: $symbol${String.format("%.0f", totalExpense)}"))
+            document.add(Paragraph("Savings: $symbol${String.format("%.0f", totalIncome - totalExpense)}"))
+
+            // Spending by Category
             document.add(Paragraph("\nSpending by Category").setFontSize(18f).setBold())
-            val table = Table(2)
-            table.addCell("Category")
-            table.addCell("Amount")
+
+            val table = Table(2) // 2 Columns
+            table.addCell(Paragraph("Category").setBold())
+            table.addCell(Paragraph("Amount").setBold())
+
             for ((name, amount) in categoryData) {
                 table.addCell(name)
-                table.addCell("₹$amount")
+                table.addCell("$symbol${String.format("%.0f", amount)}")
             }
             document.add(table)
+
+            // Footer
+            document.add(Paragraph("\nGenerated by SpendSense").setFontSize(10f).setItalic())
 
             document.close()
             Toast.makeText(context, "PDF Saved to Downloads: $fileName", Toast.LENGTH_LONG).show()
 
-            // Open PDF logic here (same as before)
+            // Open PDF logic
+            try {
+                val uri = FileProvider.getUriForFile(
+                    requireContext(),
+                    "${requireContext().packageName}.provider",
+                    file
+                )
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.setDataAndType(uri, "application/pdf")
+                intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                startActivity(Intent.createChooser(intent, "Open Report"))
+            } catch (e: Exception) {
+                // Ignore open error if no PDF viewer installed
+            }
 
         } catch (e: Exception) {
-            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
+            Toast.makeText(context, "Error creating PDF: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 }

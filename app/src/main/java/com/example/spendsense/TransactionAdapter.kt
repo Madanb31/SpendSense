@@ -32,29 +32,22 @@ class TransactionAdapter : RecyclerView.Adapter<TransactionAdapter.TransactionVi
         val current = transactions[position]
         val context = holder.itemView.context
 
-        // In onBindViewHolder()
-        val symbol = CurrencyHelper.getSymbol(context)
-
-        if (current.type == "expense") {
-            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}"
-        } else {
-            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}"
-        }
+        // ADD THIS: Get symbol
+        val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(context)
 
         holder.icon.text = current.categoryIcon
         holder.description.text = current.description
 
-        // Format Date
         val dateFormat = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
         val dateString = dateFormat.format(Date(current.date))
         holder.categoryDate.text = "${current.categoryName} • $dateString"
 
-        // Format Amount & Color
+        // UPDATE THIS BLOCK
         if (current.type == "expense") {
-            holder.amount.text = "- ₹${String.format("%.0f", current.amount)}"
+            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}" // Use symbol
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark))
         } else {
-            holder.amount.text = "+ ₹${String.format("%.0f", current.amount)}"
+            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}" // Use symbol
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_green_dark))
         }
     }
