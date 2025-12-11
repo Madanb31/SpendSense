@@ -172,6 +172,30 @@ class ReportsFragment : Fragment() {
                 daysContainer.addView(row)
             }
         }
+
+        // 5. Financial Insights Logic
+        val expensesOnly = transactions.filter { it.type == "expense" }
+
+        // A. Daily Average
+        // Get current day of month (e.g., if today is 5th, divide by 5)
+        val calendar = java.util.Calendar.getInstance()
+        val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        val dailyAvg = if (currentDay > 0) totalExpense / currentDay else 0.0
+
+        view.findViewById<TextView>(R.id.tv_insight_avg).text = "$symbol${String.format("%.0f", dailyAvg)} / day"
+
+        // B. Highest Spend
+        val maxTransaction = expensesOnly.maxByOrNull { it.amount }
+        if (maxTransaction != null) {
+            view.findViewById<TextView>(R.id.tv_insight_max).text =
+                "$symbol${String.format("%.0f", maxTransaction.amount)} (${maxTransaction.categoryName})"
+        } else {
+            view.findViewById<TextView>(R.id.tv_insight_max).text = "None"
+        }
+
+        // C. Total Count
+        view.findViewById<TextView>(R.id.tv_insight_count).text = "${transactions.size} Records"
+
     }
 
     private fun shareReport() {
