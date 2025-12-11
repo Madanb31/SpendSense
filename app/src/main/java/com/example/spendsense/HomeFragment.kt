@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.widget.LinearLayout
 import com.example.spendsense.database.AppDatabase
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.flow.collect
@@ -54,6 +55,15 @@ class HomeFragment : Fragment() {
         settingsIcon.setOnClickListener {
             val intent = Intent(requireContext(), SettingsActivity::class.java)
             startActivity(intent)
+        }
+
+        // NEW: View All Transactions Footer Click
+        val btnViewAll = view.findViewById<LinearLayout>(R.id.btn_view_all)
+        btnViewAll.setOnClickListener {
+            // Switch to the Transactions Tab (index 1) in BottomNavigation
+            // We need to access the BottomNav from the MainActivity
+            val bottomNav = requireActivity().findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+            bottomNav.selectedItemId = R.id.navigation_transactions
         }
 
         // Load Data
