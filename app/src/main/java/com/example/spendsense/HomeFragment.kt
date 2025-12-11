@@ -5,18 +5,18 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.widget.LinearLayout
 import com.example.spendsense.database.AppDatabase
+import com.example.spendsense.database.Transaction
+import com.example.spendsense.utils.CurrencyHelper
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import com.example.spendsense.database.Transaction
 
 class HomeFragment : Fragment() {
 
@@ -57,11 +57,9 @@ class HomeFragment : Fragment() {
             startActivity(intent)
         }
 
-        // NEW: View All Transactions Footer Click
+        // View All Click
         val btnViewAll = view.findViewById<LinearLayout>(R.id.btn_view_all)
         btnViewAll.setOnClickListener {
-            // Switch to the Transactions Tab (index 1) in BottomNavigation
-            // We need to access the BottomNav from the MainActivity
             val bottomNav = requireActivity().findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
             bottomNav.selectedItemId = R.id.navigation_transactions
         }
@@ -70,6 +68,15 @@ class HomeFragment : Fragment() {
         loadDashboardData(view, emptyState)
 
         return view
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh UI in case currency changed in Settings
+        val emptyState = view?.findViewById<TextView>(R.id.tv_empty_state)
+        if (emptyState != null && view != null) {
+            loadDashboardData(requireView(), emptyState)
+        }
     }
 
     private fun loadDashboardData(view: View, emptyState: TextView) {
@@ -104,18 +111,18 @@ class HomeFragment : Fragment() {
         val tvIncome = view.findViewById<TextView>(R.id.tv_income)
         val tvExpense = view.findViewById<TextView>(R.id.tv_expense)
 
-        // Find Quick Stats Views (you need to add IDs to XML if missing!)
-        // Let's assume IDs: tv_stats_count, tv_stats_top_category, tv_stats_top_amount
-        // NOTE: Check your fragment_home.xml to ensure these IDs exist on the "-" textviews!
         val tvStatsCount = view.findViewById<TextView>(R.id.tv_stats_count)
         val tvStatsTopAmount = view.findViewById<TextView>(R.id.tv_stats_top_amount)
         val tvStatsTopIcon = view.findViewById<TextView>(R.id.tv_stats_top_icon)
 
+        // Get Currency Symbol
+        val symbol = CurrencyHelper.getSymbol(requireContext())
+
         // 1. Balance & Totals
         val balance = income - expense
-        tvIncome.text = "₹${String.format("%.0f", income)}"
-        tvExpense.text = "₹${String.format("%.0f", expense)}"
-        tvBalance.text = "₹${String.format("%.2f", balance)}"
+        tvIncome.text = "$symbol${String.format("%.0f", income)}"
+        tvExpense.text = "$symbol${String.format("%.0f", expense)}"
+        tvBalance.text = "$symbol${String.format("%.2f", balance)}"
 
         // 2. Transaction Count
         tvStatsCount.text = "${transactions.size}"
@@ -130,11 +137,11 @@ class HomeFragment : Fragment() {
                 val amount = topCategory.value.sumOf { it.amount }
                 val icon = topCategory.value.first().categoryIcon
 
-                tvStatsTopAmount.text = "₹${String.format("%.0f", amount)}"
+                tvStatsTopAmount.text = "$symbol${String.format("%.0f", amount)}"
                 tvStatsTopIcon.text = icon
             }
         } else {
-            tvStatsTopAmount.text = "₹0"
+            tvStatsTopAmount.text = "${symbol}0"
             tvStatsTopIcon.text = "⭐"
         }
     }

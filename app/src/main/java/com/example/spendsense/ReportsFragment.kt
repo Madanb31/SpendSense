@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Transaction
+import com.example.spendsense.utils.CurrencyHelper
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.kernel.pdf.PdfDocument
@@ -78,6 +79,11 @@ class ReportsFragment : Fragment() {
     }
 
     private fun calculateReports(view: View, transactions: List<Transaction>) {
+
+        // In calculateReports()
+        val symbol = CurrencyHelper.getSymbol(requireContext())
+// ... replace all "₹" with "$symbol" ...
+
         // 1. Totals
         totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
         totalExpense = transactions.filter { it.type == "expense" }.sumOf { it.amount }

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.example.spendsense.utils.CurrencyHelper
 import com.example.spendsense.database.Transaction
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,6 +31,15 @@ class TransactionAdapter : RecyclerView.Adapter<TransactionAdapter.TransactionVi
     override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
         val current = transactions[position]
         val context = holder.itemView.context
+
+        // In onBindViewHolder()
+        val symbol = CurrencyHelper.getSymbol(context)
+
+        if (current.type == "expense") {
+            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}"
+        } else {
+            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}"
+        }
 
         holder.icon.text = current.categoryIcon
         holder.description.text = current.description

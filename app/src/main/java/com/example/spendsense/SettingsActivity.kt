@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var database: AppDatabase
+
+    private var selectedCurrency: String = "₹" // Default
     private var userId: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,9 +51,16 @@ class SettingsActivity : AppCompatActivity() {
             showLogoutDialog()
         }
 
-        // Currency selection
-        findViewById<TextView>(R.id.setting_currency).setOnClickListener {
-            Toast.makeText(this, "Currency selection (Coming Soon!)", Toast.LENGTH_SHORT).show()
+        // Currency selection - NOW WORKING
+        val currencyText = findViewById<TextView>(R.id.setting_currency)
+
+        // Load saved currency to display
+        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+        selectedCurrency = prefs.getString("currency", "₹") ?: "₹"
+        currencyText.text = "💱  Currency ($selectedCurrency)"
+
+        currencyText.setOnClickListener {
+            showCurrencyDialog(currencyText)
         }
 
         // About
@@ -137,6 +146,35 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showCurrencyDialog(textView: TextView) {
+        val currencies = arrayOf("₹ (INR)", "$ (USD)", "€ (EUR)", "£ (GBP)", "¥ (JPY)")
+        val symbols = arrayOf("₹", "$", "€", "£", "¥")
+
+        // Find current selection index
+        var checkedItem = symbols.indexOf(selectedCurrency)
+        if (checkedItem == -1) checkedItem = 0 // Default to first if not found
+
+        AlertDialog.Builder(this)
+            .setTitle("Select Currency")
+            .setSingleChoiceItems(currencies, checkedItem) { dialog, which ->
+                // Update variable
+                selectedCurrency = symbols[which]
+
+                // Save to SharedPreferences
+                val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+                val editor = prefs.edit()
+                editor.putString("currency", selectedCurrency)
+                editor.apply()
+
+                // Update UI text immediately
+                textView.text = "💱  Currency ($selectedCurrency)"
+
+                Toast.makeText(this, "Currency set to $selectedCurrency", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
     private fun clearAllData() {
         lifecycleScope.launch {
             try {
