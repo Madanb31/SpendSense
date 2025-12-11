@@ -121,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
             .setTitle("About SpendSense")
-            .setMessage("SpendSense v1.0.0\n\nA simple and elegant expense tracker to help you manage your money smartly.\n\n© 2024 SpendSense")
+            .setMessage("SpendSense v1.0.0\n\nA simple and elegant expense tracker to help you manage your money smartly.\n\n© 2025 SpendSense")
             .setPositiveButton("OK", null)
             .show()
     }
