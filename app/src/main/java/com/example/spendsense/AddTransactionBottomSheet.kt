@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -23,6 +24,31 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
     private lateinit var database: AppDatabase
     private var selectedType = "expense"
     private var selectedCategory: Category? = null
+
+    // Edit Mode Variables
+    private var transactionId: Int = 0
+    private var isEditMode = false
+    private var originalDate: Long = System.currentTimeMillis()
+
+    // Singleton to pass data easily
+    companion object {
+        fun newInstance(transaction: Transaction? = null): AddTransactionBottomSheet {
+            val fragment = AddTransactionBottomSheet()
+            if (transaction != null) {
+                val args = Bundle()
+                args.putInt("id", transaction.id)
+                args.putDouble("amount", transaction.amount)
+                args.putString("desc", transaction.description)
+                args.putString("type", transaction.type)
+                args.putString("catName", transaction.categoryName)
+                args.putInt("catId", transaction.categoryId)
+                args.putString("catIcon", transaction.categoryIcon)
+                args.putLong("date", transaction.date)
+                fragment.arguments = args
+            }
+            return fragment
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -43,29 +69,74 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
         val chipGroup = view.findViewById<ChipGroup>(R.id.chip_group_categories)
         val btnSave = view.findViewById<Button>(R.id.btn_save_transaction)
 
-        // Load expense categories by default
-        loadCategories(chipGroup, "expense")
+        // Check if we are Editing
+        if (arguments != null && requireArguments().containsKey("id")) {
+            isEditMode = true
+            val args = requireArguments()
+            transactionId = args.getInt("id")
+            originalDate = args.getLong("date")
 
+            val amount = args.getDouble("amount")
+            val desc = args.getString("desc")
+            val type = args.getString("type") ?: "expense"
+            val catName = args.getString("catName")
+            val catIcon = args.getString("catIcon") ?: "🏷️"
+            val catId = args.getInt("catId")
+
+            // Pre-fill fields
+            etAmount.setText(amount.toString())
+            etDescription.setText(desc)
+            btnSave.text = "Update Transaction"
+
+            // Set Toggle
+            if (type == "income") {
+                toggleGroup.check(R.id.btn_income)
+                selectedType = "income"
+            } else {
+                toggleGroup.check(R.id.btn_expense)
+                selectedType = "expense"
+            }
+
+            // Pre-set selected category object for logic
+            selectedCategory = Category(id = catId, name = catName ?: "", icon = catIcon, color = "", type = type)
+        }
+
+        // Color update helper
+        fun updateToggleColors(isExpense: Boolean) {
+            val red = ContextCompat.getColor(requireContext(), android.R.color.holo_red_light)
+            val green = ContextCompat.getColor(requireContext(), android.R.color.holo_green_light)
+            val white = ContextCompat.getColor(requireContext(), android.R.color.white)
+
+            if (isExpense) {
+                btnExpense.setBackgroundColor(red)
+                btnExpense.setTextColor(white)
+                btnIncome.setBackgroundColor(white)
+                btnIncome.setTextColor(green)
+            } else {
+                btnExpense.setBackgroundColor(white)
+                btnExpense.setTextColor(red)
+                btnIncome.setBackgroundColor(green)
+                btnIncome.setTextColor(white)
+            }
+        }
+
+        // Initial Color
+        updateToggleColors(selectedType == "expense")
+
+        // Load Categories
+        loadCategories(chipGroup, selectedType)
+
+        // Toggle Listener
         toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
-                when (checkedId) {
-                    R.id.btn_expense -> {
-                        selectedType = "expense"
-                        btnExpense.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.holo_red_light))
-                        btnExpense.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-                        btnIncome.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-                        btnIncome.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_green_dark))
-                        loadCategories(chipGroup, "expense")
-                    }
-                    R.id.btn_income -> {
-                        selectedType = "income"
-                        btnIncome.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.holo_green_light))
-                        btnIncome.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-                        btnExpense.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-                        btnExpense.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark))
-                        loadCategories(chipGroup, "income")
-                    }
+                if (checkedId == R.id.btn_expense) {
+                    selectedType = "expense"
+                    updateToggleColors(true)
+                } else {
+                    selectedType = "income"
+                    updateToggleColors(false)
                 }
+                loadCategories(chipGroup, selectedType)
             }
         }
 
@@ -90,13 +161,18 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
     private fun loadCategories(chipGroup: ChipGroup, type: String) {
         lifecycleScope.launch {
             chipGroup.removeAllViews()
-            selectedCategory = null // Reset selection when switching type
-
             database.categoryDao().getCategoriesByType(type).collect { categories ->
                 for (category in categories) {
                     val chip = Chip(context)
                     chip.text = "${category.icon} ${category.name}"
                     chip.isCheckable = true
+
+                    // If Editing, check the chip that matches
+                    if (isEditMode && selectedCategory != null && category.name == selectedCategory!!.name) {
+                        chip.isChecked = true
+                        selectedCategory = category // Update ref to real DB object
+                    }
+
                     chip.setOnCheckedChangeListener { _, isChecked ->
                         if (isChecked) {
                             selectedCategory = category
@@ -115,6 +191,7 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
 
             if (userId != -1) {
                 val transaction = Transaction(
+                    id = if (isEditMode) transactionId else 0,
                     userId = userId,
                     amount = amount,
                     categoryId = selectedCategory!!.id,
@@ -122,13 +199,17 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                     categoryIcon = selectedCategory!!.icon,
                     type = selectedType,
                     description = description.ifEmpty { selectedCategory!!.name },
-                    date = System.currentTimeMillis()
+                    date = originalDate
                 )
-                database.transactionDao().insertTransaction(transaction)
-                Toast.makeText(context, "Transaction Saved!", Toast.LENGTH_SHORT).show()
+
+                if (isEditMode) {
+                    database.transactionDao().updateTransaction(transaction)
+                    Toast.makeText(context, "Transaction Updated", Toast.LENGTH_SHORT).show()
+                } else {
+                    database.transactionDao().insertTransaction(transaction)
+                    Toast.makeText(context, "Transaction Saved", Toast.LENGTH_SHORT).show()
+                }
                 dismiss()
-            } else {
-                Toast.makeText(context, "Error: User not logged in", Toast.LENGTH_SHORT).show()
             }
         }
     }

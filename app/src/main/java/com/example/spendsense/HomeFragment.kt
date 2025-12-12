@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -15,8 +17,10 @@ import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Transaction
 import com.example.spendsense.utils.CurrencyHelper
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeFragment : Fragment() {
 
@@ -31,22 +35,26 @@ class HomeFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
 
-        // Init Database & User
         database = AppDatabase.getDatabase(requireContext())
         val prefs = requireContext().getSharedPreferences("UserPrefs", android.content.Context.MODE_PRIVATE)
         userId = prefs.getInt("userId", -1)
 
-        // Setup RecyclerView
+        // Setup RecyclerView with Long Click
         val recyclerView = view.findViewById<RecyclerView>(R.id.rv_recent_transactions)
         val emptyState = view.findViewById<TextView>(R.id.tv_empty_state)
-        adapter = TransactionAdapter()
+
+        adapter = TransactionAdapter { transaction ->
+            showEditDeleteDialog(transaction)
+        }
+
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(context)
 
         // FAB Click
         val fab = view.findViewById<FloatingActionButton>(R.id.fab_add_transaction)
         fab.setOnClickListener {
-            val addTransactionSheet = AddTransactionBottomSheet()
+            // New transaction (pass null)
+            val addTransactionSheet = AddTransactionBottomSheet.newInstance(null)
             addTransactionSheet.show(parentFragmentManager, "AddTransactionBottomSheet")
         }
 
@@ -72,7 +80,6 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh UI in case currency changed in Settings
         val emptyState = view?.findViewById<TextView>(R.id.tv_empty_state)
         if (emptyState != null && view != null) {
             loadDashboardData(requireView(), emptyState)
@@ -83,23 +90,17 @@ class HomeFragment : Fragment() {
         if (userId == -1) return
 
         lifecycleScope.launch {
-            // We only need ONE observer to get all data and update everything
             database.transactionDao().getAllTransactions(userId).collect { allTransactions ->
-
-                // 1. Calculate Totals
                 val income = allTransactions.filter { it.type == "income" }.sumOf { it.amount }
                 val expense = allTransactions.filter { it.type == "expense" }.sumOf { it.amount }
 
-                // 2. Update UI (Balance, Stats, etc.)
                 updateUI(view, income, expense, allTransactions)
 
-                // 3. Update RecyclerView (Show only top 5 recent)
                 if (allTransactions.isEmpty()) {
                     emptyState.visibility = View.VISIBLE
                     adapter.setData(emptyList())
                 } else {
                     emptyState.visibility = View.GONE
-                    // Take top 5 for the "Recent" list
                     adapter.setData(allTransactions.take(5))
                 }
             }
@@ -110,24 +111,19 @@ class HomeFragment : Fragment() {
         val tvBalance = view.findViewById<TextView>(R.id.tv_balance)
         val tvIncome = view.findViewById<TextView>(R.id.tv_income)
         val tvExpense = view.findViewById<TextView>(R.id.tv_expense)
-
         val tvStatsCount = view.findViewById<TextView>(R.id.tv_stats_count)
         val tvStatsTopAmount = view.findViewById<TextView>(R.id.tv_stats_top_amount)
         val tvStatsTopIcon = view.findViewById<TextView>(R.id.tv_stats_top_icon)
 
-        // Get Currency Symbol
         val symbol = CurrencyHelper.getSymbol(requireContext())
 
-        // 1. Balance & Totals
         val balance = income - expense
         tvIncome.text = "$symbol${String.format("%.0f", income)}"
         tvExpense.text = "$symbol${String.format("%.0f", expense)}"
         tvBalance.text = "$symbol${String.format("%.2f", balance)}"
 
-        // 2. Transaction Count
         tvStatsCount.text = "${transactions.size}"
 
-        // 3. Top Spending Category
         val expenses = transactions.filter { it.type == "expense" }
         if (expenses.isNotEmpty()) {
             val topCategory = expenses.groupBy { it.categoryName }
@@ -136,7 +132,6 @@ class HomeFragment : Fragment() {
             if (topCategory != null) {
                 val amount = topCategory.value.sumOf { it.amount }
                 val icon = topCategory.value.first().categoryIcon
-
                 tvStatsTopAmount.text = "$symbol${String.format("%.0f", amount)}"
                 tvStatsTopIcon.text = icon
             }
@@ -144,5 +139,38 @@ class HomeFragment : Fragment() {
             tvStatsTopAmount.text = "${symbol}0"
             tvStatsTopIcon.text = "⭐"
         }
+    }
+
+    // --- Edit/Delete Logic ---
+    private fun showEditDeleteDialog(transaction: Transaction) {
+        val options = arrayOf("Edit", "Delete")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Transaction Action")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val editSheet = AddTransactionBottomSheet.newInstance(transaction)
+                        editSheet.show(parentFragmentManager, "EditTransaction")
+                    }
+                    1 -> showDeleteConfirmation(transaction)
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteConfirmation(transaction: Transaction) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Transaction?")
+            .setMessage("Are you sure you want to delete this?")
+            .setPositiveButton("Delete") { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    database.transactionDao().deleteTransaction(transaction)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

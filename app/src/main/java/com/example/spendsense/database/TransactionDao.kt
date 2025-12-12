@@ -8,6 +8,12 @@ interface TransactionDao {
     @Insert
     suspend fun insertTransaction(transaction: Transaction): Long
 
+    @Update
+    suspend fun updateTransaction(transaction: Transaction)
+
+    @Delete
+    suspend fun deleteTransaction(transaction: Transaction)
+
     @Query("SELECT * FROM transactions WHERE userId = :userId ORDER BY date DESC")
     fun getAllTransactions(userId: Int): Flow<List<Transaction>>
 
@@ -26,16 +32,6 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :transactionId")
     suspend fun getTransactionById(transactionId: Int): Transaction?
 
-    @Update
-    suspend fun updateTransaction(transaction: Transaction)
-
-    @Delete
-    suspend fun deleteTransaction(transaction: Transaction)
-
     @Query("DELETE FROM transactions WHERE userId = :userId")
     suspend fun deleteAllTransactions(userId: Int)
-
-    // Search transactions by description
-    @Query("SELECT * FROM transactions WHERE userId = :userId AND description LIKE '%' || :query || '%' ORDER BY date DESC")
-    fun searchTransactions(userId: Int, query: String): Flow<List<Transaction>>
 }

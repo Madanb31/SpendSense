@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -18,8 +20,10 @@ import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Category
 import com.example.spendsense.database.Transaction
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TransactionsFragment : Fragment() {
 
@@ -31,36 +35,33 @@ class TransactionsFragment : Fragment() {
     private var userId: Int = -1
 
     private lateinit var chipsContainer: LinearLayout
-    private val chipViews = mutableListOf<TextView>() // To keep track of all chips
+    private val chipViews = mutableListOf<TextView>()
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_transactions, container, false)
 
-        // Init DB
         database = AppDatabase.getDatabase(requireContext())
         val prefs = requireContext().getSharedPreferences("UserPrefs", android.content.Context.MODE_PRIVATE)
         userId = prefs.getInt("userId", -1)
 
-        // Init Views
         val recyclerView = view.findViewById<RecyclerView>(R.id.rv_transactions)
         val emptyState = view.findViewById<TextView>(R.id.tv_empty_state)
         val searchInput = view.findViewById<EditText>(R.id.et_search)
         chipsContainer = view.findViewById(R.id.ll_category_chips)
 
-        // Setup RecyclerView
-        adapter = TransactionAdapter()
+        // Setup Adapter with Long Click
+        adapter = TransactionAdapter { transaction ->
+            showEditDeleteDialog(transaction)
+        }
+
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(context)
 
-        // Load Data
         loadTransactions(emptyState)
         loadCategoryChips(emptyState)
 
-        // Search Listener
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 currentSearchText = s.toString()
@@ -70,9 +71,8 @@ class TransactionsFragment : Fragment() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // FAB
         view.findViewById<FloatingActionButton>(R.id.fab_add_transaction).setOnClickListener {
-            val addTransactionSheet = AddTransactionBottomSheet()
+            val addTransactionSheet = AddTransactionBottomSheet.newInstance(null)
             addTransactionSheet.show(parentFragmentManager, "AddTransactionBottomSheet")
         }
 
@@ -81,7 +81,6 @@ class TransactionsFragment : Fragment() {
 
     private fun loadTransactions(emptyState: TextView) {
         if (userId == -1) return
-
         lifecycleScope.launch {
             database.transactionDao().getAllTransactions(userId).collect { transactions ->
                 allTransactions = transactions
@@ -92,7 +91,6 @@ class TransactionsFragment : Fragment() {
 
     private fun loadCategoryChips(emptyState: TextView) {
         lifecycleScope.launch {
-            // Get all expense categories from DB
             database.categoryDao().getCategoriesByType("expense").collect { categories ->
                 setupChips(categories, emptyState)
             }
@@ -102,17 +100,10 @@ class TransactionsFragment : Fragment() {
     private fun setupChips(categories: List<Category>, emptyState: TextView) {
         chipsContainer.removeAllViews()
         chipViews.clear()
-
-        // 1. Add "All" Chip
         addChip("All", "All", true, emptyState)
-
-        // 2. Add "Income" Chip
         addChip("Income", "Income", false, emptyState)
-
-        // 3. Add Expense Category Chips (Dynamic)
         for (cat in categories) {
-            val label = "${cat.icon} ${cat.name}"
-            addChip(label, cat.name, false, emptyState)
+            addChip("${cat.icon} ${cat.name}", cat.name, false, emptyState)
         }
     }
 
@@ -120,30 +111,20 @@ class TransactionsFragment : Fragment() {
         val chip = TextView(context)
         chip.text = label
         chip.textSize = 14f
-        chip.setPadding(50, 20, 50, 20) // Padding: Left, Top, Right, Bottom
+        chip.setPadding(50, 20, 50, 20)
 
         val params = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         )
-        params.setMargins(0, 0, 24, 0) // Margin End
+        params.setMargins(0, 0, 24, 0)
         chip.layoutParams = params
-
-        // Tag stores the actual filter value (e.g. "Food") vs Label (e.g. "🍔 Food")
         chip.tag = filterValue
 
-        // Set visual style
         updateChipVisuals(chip, isSelected)
 
-        // Click Listener
         chip.setOnClickListener {
-            // Deselect all others
-            for (view in chipViews) {
-                updateChipVisuals(view, false)
-            }
-            // Select this one
+            for (view in chipViews) updateChipVisuals(view, false)
             updateChipVisuals(chip, true)
-
             currentCategoryFilter = filterValue
             applyFilters(emptyState)
         }
@@ -164,27 +145,19 @@ class TransactionsFragment : Fragment() {
 
     private fun applyFilters(emptyState: TextView) {
         var filteredList = allTransactions
-
-        // 1. Filter by Category Chip
         if (currentCategoryFilter != "All") {
             if (currentCategoryFilter == "Income") {
-                // Show all income types
                 filteredList = filteredList.filter { it.type == "income" }
             } else {
-                // Show specific category
                 filteredList = filteredList.filter { it.categoryName.equals(currentCategoryFilter, ignoreCase = true) }
             }
         }
-
-        // 2. Filter by Search Text
         if (currentSearchText.isNotEmpty()) {
             filteredList = filteredList.filter {
                 it.description.contains(currentSearchText, ignoreCase = true) ||
                         it.categoryName.contains(currentSearchText, ignoreCase = true)
             }
         }
-
-        // 3. Update UI
         if (filteredList.isEmpty()) {
             emptyState.visibility = View.VISIBLE
             adapter.setData(emptyList())
@@ -192,5 +165,38 @@ class TransactionsFragment : Fragment() {
             emptyState.visibility = View.GONE
             adapter.setData(filteredList)
         }
+    }
+
+    // --- Edit/Delete Logic ---
+    private fun showEditDeleteDialog(transaction: Transaction) {
+        val options = arrayOf("Edit", "Delete")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Transaction Action")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val editSheet = AddTransactionBottomSheet.newInstance(transaction)
+                        editSheet.show(parentFragmentManager, "EditTransaction")
+                    }
+                    1 -> showDeleteConfirmation(transaction)
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteConfirmation(transaction: Transaction) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Transaction?")
+            .setMessage("Are you sure you want to delete this?")
+            .setPositiveButton("Delete") { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    database.transactionDao().deleteTransaction(transaction)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

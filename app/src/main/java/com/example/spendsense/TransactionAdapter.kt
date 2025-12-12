@@ -6,13 +6,15 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
-import com.example.spendsense.utils.CurrencyHelper
 import com.example.spendsense.database.Transaction
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TransactionAdapter : RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder>() {
+// Constructor now accepts a lambda function for long clicks
+class TransactionAdapter(
+    private val onLongClick: (Transaction) -> Unit = {}
+) : RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder>() {
 
     private var transactions = emptyList<Transaction>()
 
@@ -32,7 +34,7 @@ class TransactionAdapter : RecyclerView.Adapter<TransactionAdapter.TransactionVi
         val current = transactions[position]
         val context = holder.itemView.context
 
-        // ADD THIS: Get symbol
+        // Get Currency Symbol
         val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(context)
 
         holder.icon.text = current.categoryIcon
@@ -42,13 +44,18 @@ class TransactionAdapter : RecyclerView.Adapter<TransactionAdapter.TransactionVi
         val dateString = dateFormat.format(Date(current.date))
         holder.categoryDate.text = "${current.categoryName} • $dateString"
 
-        // UPDATE THIS BLOCK
         if (current.type == "expense") {
-            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}" // Use symbol
+            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}"
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark))
         } else {
-            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}" // Use symbol
+            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}"
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_green_dark))
+        }
+
+        // Long Click Listener for Edit/Delete
+        holder.itemView.setOnLongClickListener {
+            onLongClick(current)
+            true // Return true to indicate the click was handled
         }
     }
 
