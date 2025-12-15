@@ -28,9 +28,7 @@ class BudgetFragment : Fragment() {
     private lateinit var database: AppDatabase
     private var userId: Int = -1
     private var customBudgets = listOf<Budget>()
-
-    // This tracks if user has manually set a limit
-    private var manualMonthlyLimit = 0.0
+    private var monthlyBudgetLimit = 0.0
 
     // UI Views
     private lateinit var tvTotalBudget: TextView
@@ -51,10 +49,9 @@ class BudgetFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         userId = prefs.getInt("userId", -1)
 
-        // Load saved manual limit (0 if never set)
-        manualMonthlyLimit = prefs.getFloat("monthly_budget_$userId", 0f).toDouble()
+        // Load saved monthly limit
+        monthlyBudgetLimit = prefs.getFloat("monthly_budget_$userId", 0f).toDouble()
 
-        // Init Views
         tvTotalBudget = view.findViewById(R.id.tv_total_budget)
         tvTotalSpent = view.findViewById(R.id.tv_total_spent)
         tvTotalRemaining = view.findViewById(R.id.tv_total_remaining)
@@ -62,20 +59,25 @@ class BudgetFragment : Fragment() {
         tvTotalPercent = view.findViewById(R.id.tv_total_percent)
         categoryContainer = view.findViewById(R.id.ll_category_container)
 
-        // 1. FAB -> Create Category Budget
+        // FAB - Add Category Budget
         val fab = view.findViewById<FloatingActionButton>(R.id.fab_add_budget)
         fab.setOnClickListener {
             val editBudgetSheet = EditBudgetBottomSheet()
             editBudgetSheet.show(parentFragmentManager, "EditBudgetBottomSheet")
         }
 
-        // 2. Pencil Icon -> Edit Monthly Budget
+        // Pencil Icon - Edit Monthly Budget
         val editMonthlyBtn = view.findViewById<TextView>(R.id.btn_edit_monthly_budget)
         editMonthlyBtn.setOnClickListener {
             val sheet = EditMonthlyBudgetBottomSheet { newLimit ->
                 saveMonthlyBudget(newLimit)
             }
             sheet.show(parentFragmentManager, "EditMonthlyBudget")
+        }
+
+        // Listen for updates from BottomSheet
+        parentFragmentManager.setFragmentResultListener("budget_updated", viewLifecycleOwner) { _, _ ->
+            loadBudgetData() // Refresh immediately!
         }
 
         return view
@@ -90,18 +92,17 @@ class BudgetFragment : Fragment() {
         manualMonthlyLimit = limit
         val prefs = requireContext().getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         prefs.edit().putFloat("monthly_budget_$userId", limit.toFloat()).apply()
-        loadBudgetData() // Refresh UI immediately
+        loadBudgetData()
         Toast.makeText(context, "Monthly Budget Updated!", Toast.LENGTH_SHORT).show()
     }
+
+    private var manualMonthlyLimit = 0.0
 
     private fun loadBudgetData() {
         if (userId == -1) return
 
         lifecycleScope.launch(Dispatchers.IO) {
-            // Get Category Budgets
             customBudgets = database.budgetDao().getAllBudgets(userId)
-
-            // Get Transactions to calculate totals
             database.transactionDao().getAllTransactions(userId).collect { transactions ->
                 calculateBudgets(transactions)
             }
@@ -110,34 +111,33 @@ class BudgetFragment : Fragment() {
 
     private suspend fun calculateBudgets(transactions: List<Transaction>) {
         withContext(Dispatchers.Default) {
-            // 1. Determine Monthly Budget Limit
-            val totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
-
-            val activeBudgetLimit = if (manualMonthlyLimit > 0) {
-                manualMonthlyLimit // Use user's manual setting
-            } else {
-                if (totalIncome > 0) totalIncome * 0.60 else 0.0 // Default 60% rule
-            }
-
-            // 2. Calculate Total Expenses
+            // 1. Calculate Total Expenses
             val expenses = transactions.filter { it.type == "expense" }
             val totalSpent = expenses.sumOf { it.amount }
+
+            // Monthly Limit Logic
+            val totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
+            val activeBudgetLimit = if (manualMonthlyLimit > 0) {
+                manualMonthlyLimit
+            } else {
+                if (totalIncome > 0) totalIncome * 0.60 else 0.0
+            }
+
             val remaining = activeBudgetLimit - totalSpent
             val percentUsed = if (activeBudgetLimit > 0) (totalSpent / activeBudgetLimit * 100).toInt() else 0
 
-            // 3. Category Breakdown
-            val categorySpending = expenses.groupBy { it.categoryName }
+            // 2. Calculate Category Spending
+            val categorySpendingMap = expenses.groupBy { it.categoryName }
                 .mapValues { entry ->
                     val amt = entry.value.sumOf { it.amount }
                     val icon = entry.value.firstOrNull()?.categoryIcon ?: "🏷️"
                     Pair(amt, icon)
                 }
 
-            // 4. Switch to Main Thread
             withContext(Dispatchers.Main) {
                 if (isAdded) {
                     updateSummaryUI(activeBudgetLimit, totalSpent, remaining, percentUsed)
-                    updateCategoryList(categorySpending)
+                    updateCategoryList(categorySpendingMap)
                 }
             }
         }
@@ -148,7 +148,6 @@ class BudgetFragment : Fragment() {
         tvTotalBudget.text = "$symbol${String.format("%.0f", budgetLimit)}"
         tvTotalSpent.text = "$symbol${String.format("%.0f", totalSpent)}"
 
-        // FIX: No negative remaining
         if (remaining < 0) {
             tvTotalRemaining.text = "Over Budget!"
         } else {
@@ -162,9 +161,6 @@ class BudgetFragment : Fragment() {
     private fun updateCategoryList(spendingMap: Map<String, Pair<Double, String>>) {
         categoryContainer.removeAllViews()
         val symbol = CurrencyHelper.getSymbol(requireContext())
-
-        // LOGIC CHANGE: Only iterate through CUSTOM BUDGETS
-        // We ignore categories that have spending but NO budget set.
 
         if (customBudgets.isEmpty()) {
             val emptyView = TextView(context)
@@ -180,11 +176,8 @@ class BudgetFragment : Fragment() {
             val categoryName = budget.categoryName
             val limit = budget.limit
 
-            // Get actual spending for this budgeted category (or 0 if none)
             val spendingData = spendingMap[categoryName]
             val amount = spendingData?.first ?: 0.0
-
-            // Icon: From spending map OR lookup manually
             val icon = spendingData?.second ?: getIconForCategory(categoryName)
 
             val remaining = limit - amount
@@ -218,7 +211,56 @@ class BudgetFragment : Fragment() {
             }
 
             pbCat.progress = progress.coerceIn(0, 100)
+
+            // Long Press to Edit/Delete
+            itemView.setOnLongClickListener {
+                showBudgetActionDialog(categoryName, limit)
+                true
+            }
+
             categoryContainer.addView(itemView)
+        }
+    }
+
+    private fun showBudgetActionDialog(categoryName: String, currentLimit: Double) {
+        val options = arrayOf("Edit Limit", "Delete Budget")
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("$categoryName Budget")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showEditBudgetDialog(categoryName, currentLimit)
+                    1 -> showDeleteBudgetConfirmation(categoryName)
+                }
+            }
+            .show()
+    }
+
+    private fun showEditBudgetDialog(categoryName: String, currentLimit: Double) {
+        val editSheet = EditBudgetBottomSheet.newInstance(categoryName, currentLimit)
+        editSheet.show(parentFragmentManager, "EditBudget")
+    }
+
+    private fun showDeleteBudgetConfirmation(categoryName: String) {
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Delete Budget?")
+            .setMessage("Are you sure you want to delete the budget for $categoryName?")
+            .setPositiveButton("Delete") { _, _ ->
+                deleteBudget(categoryName)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteBudget(categoryName: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val budget = database.budgetDao().getBudgetByCategory(userId, categoryName)
+            if (budget != null) {
+                database.budgetDao().deleteBudget(budget)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Budget Deleted", Toast.LENGTH_SHORT).show()
+                    loadBudgetData()
+                }
+            }
         }
     }
 
@@ -231,7 +273,7 @@ class BudgetFragment : Fragment() {
             "Entertainment" -> "🎬"
             "Health" -> "💊"
             "Education" -> "📚"
-            else -> "💸"
+            else -> "🏷️"
         }
     }
 }

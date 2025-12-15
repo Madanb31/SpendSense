@@ -9,7 +9,7 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Budget
-import com.example.spendsense.database.Category // <-- CRITICAL IMPORT
+import com.example.spendsense.database.Category
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -22,7 +22,23 @@ import java.util.Locale
 class EditBudgetBottomSheet : BottomSheetDialogFragment() {
 
     private lateinit var database: AppDatabase
-    private var selectedCategory: Category? = null // <-- CRITICAL TYPE
+    private var selectedCategory: Category? = null
+
+    // Edit Mode
+    private var isEditMode = false
+    private var editCategoryName: String? = null
+    private var editLimit: Double = 0.0
+
+    companion object {
+        fun newInstance(categoryName: String, limit: Double): EditBudgetBottomSheet {
+            val fragment = EditBudgetBottomSheet()
+            val args = Bundle()
+            args.putString("catName", categoryName)
+            args.putDouble("limit", limit)
+            fragment.arguments = args
+            return fragment
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -35,9 +51,22 @@ class EditBudgetBottomSheet : BottomSheetDialogFragment() {
 
         database = AppDatabase.getDatabase(requireContext())
 
+        // Check Arguments
+        if (arguments != null) {
+            isEditMode = true
+            editCategoryName = requireArguments().getString("catName")
+            editLimit = requireArguments().getDouble("limit")
+        }
+
         val chipGroup = view.findViewById<ChipGroup>(R.id.chip_group_budget_categories)
         val etLimit = view.findViewById<TextInputEditText>(R.id.et_budget_limit)
         val btnSave = view.findViewById<Button>(R.id.btn_save_budget)
+
+        // Pre-fill Limit
+        if (isEditMode) {
+            etLimit.setText(String.format("%.0f", editLimit))
+            btnSave.text = "Update Budget"
+        }
 
         loadCategories(chipGroup)
 
@@ -65,6 +94,15 @@ class EditBudgetBottomSheet : BottomSheetDialogFragment() {
                     val chip = Chip(context)
                     chip.text = "${category.icon} ${category.name}"
                     chip.isCheckable = true
+
+                    // Pre-select if editing
+                    if (isEditMode && category.name == editCategoryName) {
+                        chip.isChecked = true
+                        selectedCategory = category
+                        // Disable other chips in edit mode (optional, prevents changing category of an existing budget)
+                        chipGroup.isEnabled = false
+                    }
+
                     chip.setOnCheckedChangeListener { _, isChecked ->
                         if (isChecked) selectedCategory = category
                     }
@@ -79,7 +117,7 @@ class EditBudgetBottomSheet : BottomSheetDialogFragment() {
             val prefs = requireContext().getSharedPreferences("UserPrefs", android.content.Context.MODE_PRIVATE)
             val userId = prefs.getInt("userId", -1)
 
-            if (userId != -1 && selectedCategory != null) { // Null check
+            if (userId != -1 && selectedCategory != null) {
                 val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
 
                 // 1. Check if budget already exists
@@ -100,7 +138,8 @@ class EditBudgetBottomSheet : BottomSheetDialogFragment() {
                 }
 
                 database.budgetDao().insertBudget(budget)
-                Toast.makeText(context, "Budget Set: ₹$limit for ${selectedCategory!!.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Budget Saved for ${selectedCategory!!.name}", Toast.LENGTH_SHORT).show()
+                parentFragmentManager.setFragmentResult("budget_updated", Bundle())
                 dismiss()
             }
         }
