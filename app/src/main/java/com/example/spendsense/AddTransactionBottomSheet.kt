@@ -16,8 +16,12 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AddTransactionBottomSheet : BottomSheetDialogFragment() {
 
@@ -25,12 +29,13 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
     private var selectedType = "expense"
     private var selectedCategory: Category? = null
 
+    // Date Variable (Default to Now)
+    private var selectedDate: Long = System.currentTimeMillis()
+
     // Edit Mode Variables
     private var transactionId: Int = 0
     private var isEditMode = false
-    private var originalDate: Long = System.currentTimeMillis()
 
-    // Singleton to pass data easily
     companion object {
         fun newInstance(transaction: Transaction? = null): AddTransactionBottomSheet {
             val fragment = AddTransactionBottomSheet()
@@ -50,91 +55,88 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.bottom_sheet_add_transaction, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         database = AppDatabase.getDatabase(requireContext())
+
+        // Check arguments for Edit Mode
+        if (arguments != null && requireArguments().containsKey("id")) {
+            isEditMode = true
+            val args = requireArguments()
+            transactionId = args.getInt("id")
+            // Use the date from the existing transaction
+            selectedDate = args.getLong("date")
+
+            // Reconstruct temp transaction object for logic
+            // (Only basic fields needed for UI setup)
+        }
 
         val toggleGroup = view.findViewById<MaterialButtonToggleGroup>(R.id.toggle_transaction_type)
         val btnExpense = view.findViewById<Button>(R.id.btn_expense)
         val btnIncome = view.findViewById<Button>(R.id.btn_income)
         val etAmount = view.findViewById<TextInputEditText>(R.id.et_amount)
+        val etDate = view.findViewById<TextInputEditText>(R.id.et_date) // NEW
         val etDescription = view.findViewById<TextInputEditText>(R.id.et_description)
         val chipGroup = view.findViewById<ChipGroup>(R.id.chip_group_categories)
         val btnSave = view.findViewById<Button>(R.id.btn_save_transaction)
 
-        // Check if we are Editing
-        if (arguments != null && requireArguments().containsKey("id")) {
-            isEditMode = true
+        // Set Date Field Text
+        val dateFormat = SimpleDateFormat("EEE, MMM dd yyyy", Locale.getDefault())
+        etDate.setText(dateFormat.format(Date(selectedDate)))
+
+        // --- DATE PICKER LOGIC ---
+        etDate.setOnClickListener {
+            val datePicker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText("Select Date")
+                .setSelection(selectedDate)
+                .build()
+
+            datePicker.addOnPositiveButtonClickListener { selection ->
+                selectedDate = selection
+                etDate.setText(dateFormat.format(Date(selectedDate)))
+            }
+
+            datePicker.show(parentFragmentManager, "DATE_PICKER")
+        }
+
+        // Pre-fill data if Editing
+        if (isEditMode) {
             val args = requireArguments()
-            transactionId = args.getInt("id")
-            originalDate = args.getLong("date")
-
-            val amount = args.getDouble("amount")
-            val desc = args.getString("desc")
-            val type = args.getString("type") ?: "expense"
-            val catName = args.getString("catName")
-            val catIcon = args.getString("catIcon") ?: "🏷️"
-            val catId = args.getInt("catId")
-
-            // Pre-fill fields
-            etAmount.setText(amount.toString())
-            etDescription.setText(desc)
             btnSave.text = "Update Transaction"
+            etAmount.setText(args.getDouble("amount").toString())
+            etDescription.setText(args.getString("desc"))
 
-            // Set Toggle
-            if (type == "income") {
-                toggleGroup.check(R.id.btn_income)
-                selectedType = "income"
-            } else {
-                toggleGroup.check(R.id.btn_expense)
-                selectedType = "expense"
-            }
+            val type = args.getString("type") ?: "expense"
+            selectedType = type
 
-            // Pre-set selected category object for logic
-            selectedCategory = Category(id = catId, name = catName ?: "", icon = catIcon, color = "", type = type)
+            if (type == "income") toggleGroup.check(R.id.btn_income)
+            else toggleGroup.check(R.id.btn_expense)
+
+            // Re-create category object for selection logic
+            selectedCategory = Category(
+                id = args.getInt("catId"),
+                name = args.getString("catName") ?: "",
+                icon = args.getString("catIcon") ?: "🏷️",
+                color = "",
+                type = type
+            )
         }
 
-        // Color update helper
-        fun updateToggleColors(isExpense: Boolean) {
-            val red = ContextCompat.getColor(requireContext(), android.R.color.holo_red_light)
-            val green = ContextCompat.getColor(requireContext(), android.R.color.holo_green_light)
-            val white = ContextCompat.getColor(requireContext(), android.R.color.white)
-
-            if (isExpense) {
-                btnExpense.setBackgroundColor(red)
-                btnExpense.setTextColor(white)
-                btnIncome.setBackgroundColor(white)
-                btnIncome.setTextColor(green)
-            } else {
-                btnExpense.setBackgroundColor(white)
-                btnExpense.setTextColor(red)
-                btnIncome.setBackgroundColor(green)
-                btnIncome.setTextColor(white)
-            }
-        }
-
-        // Initial Color
-        updateToggleColors(selectedType == "expense")
-
-        // Load Categories
+        updateToggleUI(btnExpense, btnIncome, selectedType == "expense")
         loadCategories(chipGroup, selectedType)
 
-        // Toggle Listener
         toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 if (checkedId == R.id.btn_expense) {
                     selectedType = "expense"
-                    updateToggleColors(true)
+                    updateToggleUI(btnExpense, btnIncome, true)
                 } else {
                     selectedType = "income"
-                    updateToggleColors(false)
+                    updateToggleUI(btnExpense, btnIncome, false)
                 }
                 loadCategories(chipGroup, selectedType)
             }
@@ -144,17 +146,30 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             val amountText = etAmount.text.toString()
             val description = etDescription.text.toString()
 
-            if (amountText.isEmpty()) {
-                Toast.makeText(context, "Please enter an amount", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (selectedCategory == null) {
-                Toast.makeText(context, "Please select a category", Toast.LENGTH_SHORT).show()
+            if (amountText.isEmpty() || selectedCategory == null) {
+                Toast.makeText(context, "Fill all fields", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val amount = amountText.toDoubleOrNull() ?: 0.0
-            saveTransaction(amount, description)
+            saveTransaction(amountText.toDouble(), description)
+        }
+    }
+
+    private fun updateToggleUI(btnExpense: Button, btnIncome: Button, isExpense: Boolean) {
+        val red = ContextCompat.getColor(requireContext(), android.R.color.holo_red_light)
+        val green = ContextCompat.getColor(requireContext(), android.R.color.holo_green_light)
+        val white = ContextCompat.getColor(requireContext(), android.R.color.white)
+
+        if (isExpense) {
+            btnExpense.setBackgroundColor(red)
+            btnExpense.setTextColor(white)
+            btnIncome.setBackgroundColor(white)
+            btnIncome.setTextColor(green)
+        } else {
+            btnExpense.setBackgroundColor(white)
+            btnExpense.setTextColor(red)
+            btnIncome.setBackgroundColor(green)
+            btnIncome.setTextColor(white)
         }
     }
 
@@ -167,16 +182,13 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                     chip.text = "${category.icon} ${category.name}"
                     chip.isCheckable = true
 
-                    // If Editing, check the chip that matches
                     if (isEditMode && selectedCategory != null && category.name == selectedCategory!!.name) {
                         chip.isChecked = true
-                        selectedCategory = category // Update ref to real DB object
+                        selectedCategory = category
                     }
 
                     chip.setOnCheckedChangeListener { _, isChecked ->
-                        if (isChecked) {
-                            selectedCategory = category
-                        }
+                        if (isChecked) selectedCategory = category
                     }
                     chipGroup.addView(chip)
                 }
@@ -199,7 +211,7 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                     categoryIcon = selectedCategory!!.icon,
                     type = selectedType,
                     description = description.ifEmpty { selectedCategory!!.name },
-                    date = originalDate
+                    date = selectedDate // USE THE SELECTED DATE
                 )
 
                 if (isEditMode) {
