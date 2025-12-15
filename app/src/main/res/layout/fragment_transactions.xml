@@ -6,17 +6,18 @@
     android:layout_height="match_parent"
     android:background="#F5F5F5">
 
-    <!-- Scrollable Content -->
-    <ScrollView
+    <!-- Main Layout (No ScrollView wrapper) -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="false">
+        android:orientation="vertical">
 
+        <!-- HEADER SECTION (Fixed at top) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="100dp">
+            android:paddingBottom="8dp">
 
             <!-- Title -->
             <TextView
@@ -63,7 +64,8 @@
                         android:textColor="#333333"
                         android:textColorHint="#999999"
                         android:textSize="16sp"
-                        android:inputType="text"/>
+                        android:inputType="text"
+                        android:minHeight="48dp"/>
 
                 </LinearLayout>
 
@@ -76,42 +78,43 @@
                 android:scrollbars="none"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
-                android:layout_marginBottom="16dp">
+                android:layout_marginBottom="8dp">
 
                 <LinearLayout
                     android:id="@+id/ll_category_chips"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-                    <!-- Chips will be added here dynamically -->
+                    <!-- Chips added dynamically -->
                 </LinearLayout>
 
             </HorizontalScrollView>
 
-            <!-- Transactions List -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_transactions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false"
-                android:clipToPadding="false"/>
-
-            <!-- Empty State -->
-            <TextView
-                android:id="@+id/tv_empty_state"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="No transactions found"
-                android:gravity="center"
-                android:padding="32dp"
-                android:textColor="#999999"
-                android:visibility="gone"/>
-
         </LinearLayout>
 
-    </ScrollView>
+        <!-- TRANSACTIONS LIST (Takes remaining space and scrolls) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_transactions"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="100dp"/> <!-- Space for FAB -->
 
-    <!-- FAB Button -->
+        <!-- Empty State (Hidden by default) -->
+        <TextView
+            android:id="@+id/tv_empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No transactions found"
+            android:gravity="center"
+            android:padding="32dp"
+            android:textColor="#999999"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+
+    <!-- FAB Button (Floats on top) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_add_transaction"
         android:layout_width="wrap_content"
