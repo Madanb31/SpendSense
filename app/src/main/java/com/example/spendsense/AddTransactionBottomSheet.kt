@@ -4,7 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ImageButton
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -12,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.spendsense.database.AppDatabase
 import com.example.spendsense.database.Category
 import com.example.spendsense.database.Transaction
+import com.example.spendsense.network.RetrofitClient
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.chip.Chip
@@ -68,27 +72,57 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             isEditMode = true
             val args = requireArguments()
             transactionId = args.getInt("id")
-            // Use the date from the existing transaction
             selectedDate = args.getLong("date")
-
-            // Reconstruct temp transaction object for logic
-            // (Only basic fields needed for UI setup)
         }
 
         val toggleGroup = view.findViewById<MaterialButtonToggleGroup>(R.id.toggle_transaction_type)
         val btnExpense = view.findViewById<Button>(R.id.btn_expense)
         val btnIncome = view.findViewById<Button>(R.id.btn_income)
         val etAmount = view.findViewById<TextInputEditText>(R.id.et_amount)
-        val etDate = view.findViewById<TextInputEditText>(R.id.et_date) // NEW
+        val etDate = view.findViewById<TextInputEditText>(R.id.et_date)
         val etDescription = view.findViewById<TextInputEditText>(R.id.et_description)
         val chipGroup = view.findViewById<ChipGroup>(R.id.chip_group_categories)
         val btnSave = view.findViewById<Button>(R.id.btn_save_transaction)
+
+        // --- CURRENCY LOGIC START ---
+        val spinnerCurrency = view.findViewById<Spinner>(R.id.spinner_currency)
+        val btnConvert = view.findViewById<ImageButton>(R.id.btn_convert)
+
+        // 1. Setup Spinner with Major Currencies AND Custom Layout
+        val currencies = arrayOf("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED", "CNY")
+
+        // FIX: Use R.layout.spinner_item for visible text color
+        val adapter = ArrayAdapter(requireContext(), R.layout.spinner_item, currencies)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerCurrency.adapter = adapter
+
+        // 2. Handle Convert Button
+        btnConvert.setOnClickListener {
+            val amountText = etAmount.text.toString()
+            if (amountText.isEmpty()) {
+                Toast.makeText(context, "Enter amount first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val amount = amountText.toDouble()
+            val selectedCurrency = spinnerCurrency.selectedItem.toString()
+            val targetCurrency = "INR"
+
+            if (selectedCurrency == targetCurrency) {
+                Toast.makeText(context, "Already in INR", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Call API
+            convertCurrency(amount, selectedCurrency, targetCurrency, etAmount)
+        }
+        // --- CURRENCY LOGIC END ---
 
         // Set Date Field Text
         val dateFormat = SimpleDateFormat("EEE, MMM dd yyyy", Locale.getDefault())
         etDate.setText(dateFormat.format(Date(selectedDate)))
 
-        // --- DATE PICKER LOGIC ---
+        // Date Picker Logic
         etDate.setOnClickListener {
             val datePicker = MaterialDatePicker.Builder.datePicker()
                 .setTitleText("Select Date")
@@ -116,7 +150,6 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             if (type == "income") toggleGroup.check(R.id.btn_income)
             else toggleGroup.check(R.id.btn_expense)
 
-            // Re-create category object for selection logic
             selectedCategory = Category(
                 id = args.getInt("catId"),
                 name = args.getString("catName") ?: "",
@@ -152,6 +185,28 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             }
 
             saveTransaction(amountText.toDouble(), description)
+        }
+    }
+
+    private fun convertCurrency(amount: Double, from: String, to: String, etAmount: TextInputEditText) {
+        Toast.makeText(context, "Converting...", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch {
+            try {
+                // Call API using Retrofit
+                val response = RetrofitClient.api.getRates(from, to, amount)
+                val convertedAmount = response.rates[to]
+
+                if (convertedAmount != null) {
+                    etAmount.setText(String.format("%.2f", convertedAmount))
+                    // FIX: Removed the long Toast message
+                } else {
+                    Toast.makeText(context, "Conversion failed", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Network Error: Check Internet", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -211,7 +266,7 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                     categoryIcon = selectedCategory!!.icon,
                     type = selectedType,
                     description = description.ifEmpty { selectedCategory!!.name },
-                    date = selectedDate // USE THE SELECTED DATE
+                    date = selectedDate
                 )
 
                 if (isEditMode) {

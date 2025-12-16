@@ -61,30 +61,56 @@
 
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <!-- Amount Input -->
-        <com.google.android.material.textfield.TextInputLayout
+        <!-- Amount & Currency Row -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Amount"
-            android:layout_marginBottom="16dp"
-            android:textColorHint="#999999"
-            app:boxStrokeColor="#4CAF50"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:boxBackgroundColor="#FFFFFF"
-            app:hintTextColor="#4CAF50"
-            app:startIconDrawable="@drawable/ic_budget"
-            app:startIconTint="#4CAF50"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_amount"
-                android:layout_width="match_parent"
+            <!-- Currency Spinner (Width 100dp) -->
+            <Spinner
+                android:id="@+id/spinner_currency"
+                android:layout_width="100dp"
+                android:layout_height="56dp"
+                android:background="@drawable/chip_unselected"
+                android:padding="8dp"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- Amount Input (Takes remaining space) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:inputType="numberDecimal"
-                android:textColor="#333333"/>
+                android:layout_weight="1"
+                android:hint="Amount"
+                android:textColorHint="#999999"
+                app:boxStrokeColor="#4CAF50"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="#4CAF50"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_amount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal"
+                    android:textColor="#333333"/>
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Convert Button -->
+            <ImageButton
+                android:id="@+id/btn_convert"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_popup_sync"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginStart="8dp"
+                app:tint="#4CAF50"
+                android:contentDescription="Convert"/>
+
+        </LinearLayout>
 
         <!-- NEW: Date Selector -->
         <com.google.android.material.textfield.TextInputLayout
