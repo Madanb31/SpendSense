@@ -2,27 +2,34 @@
 
     <!-- Main App Theme - CHANGED PARENT TO MATERIAL COMPONENTS -->
     <style name="Theme.SpendSense" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Primary brand color -->
-        <item name="colorPrimary">#4CAF50</item>
-        <item name="colorPrimaryVariant">#388E3C</item>
+        <!-- Brand Colors -->
+        <item name="colorPrimary">@color/primary_green</item>
+        <item name="colorPrimaryVariant">@color/primary_green</item>
         <item name="colorOnPrimary">#FFFFFF</item>
 
-        <!-- Secondary brand color -->
-        <item name="colorSecondary">#4CAF50</item>
-        <item name="colorSecondaryVariant">#388E3C</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
+        <!-- Global Backgrounds -->
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:navigationBarColor">@color/app_background</item>
 
-        <!-- Status bar color -->
-        <item name="android:statusBarColor">#4CAF50</item>
-
-        <!-- Customize your theme here -->
-        <item name="android:windowBackground">#F5F5F5</item>
+        <!-- Text Colors (Defaults) -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
     </style>
 
     <!-- Splash Screen Theme -->
     <style name="SplashTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowBackground">#4CAF50</item>
         <item name="android:statusBarColor">#4CAF50</item>
+    </style>
+
+    <!-- Transparent Bottom Sheet Style -->
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheet</item>
+    </style>
+
+    <style name="CustomBottomSheet" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
     </style>
 
 </resources>

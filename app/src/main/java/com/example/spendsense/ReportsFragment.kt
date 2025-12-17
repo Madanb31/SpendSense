@@ -140,7 +140,7 @@ class ReportsFragment : Fragment() {
                 row.text = "$name: $symbol${String.format("%.0f", amount)} ($percent%)"
                 row.textSize = 14f
                 row.setPadding(0, 8, 0, 8)
-                row.setTextColor(resources.getColor(android.R.color.black, null))
+                row.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_primary))
                 categoryContainer.addView(row)
             }
         }
@@ -168,7 +168,7 @@ class ReportsFragment : Fragment() {
                 row.text = "$date: $symbol${String.format("%.0f", amount)}"
                 row.textSize = 14f
                 row.setPadding(0, 8, 0, 8)
-                row.setTextColor(resources.getColor(android.R.color.black, null))
+                row.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_primary))
                 daysContainer.addView(row)
             }
         }

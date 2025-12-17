@@ -1,5 +1,6 @@
 package com.example.spendsense
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
@@ -7,6 +8,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
 import com.example.spendsense.database.AppDatabase
 import kotlinx.coroutines.launch
@@ -14,63 +16,53 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var database: AppDatabase
-
-    private var selectedCurrency: String = "₹" // Default
     private var userId: Int = 0
+    private var selectedCurrency: String = "₹"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        // Enable back button
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "Settings"
 
-        // Initialize database
         database = AppDatabase.getDatabase(this)
-
-        // Get userId from SharedPreferences
         val sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE)
         userId = sharedPreferences.getInt("userId", 0)
+        selectedCurrency = sharedPreferences.getString("currency", "₹") ?: "₹"
 
-        // Load user data from database
+        // Load User Data
         loadUserData()
 
-        // App version
+        // App Version
         val versionText = findViewById<TextView>(R.id.tv_app_version)
         try {
             val versionName = packageManager.getPackageInfo(packageName, 0).versionName
-            versionText.text = "Version $versionName"
+            versionText.text = versionName
         } catch (e: Exception) {
-            versionText.text = "Version 1.0.0"
+            versionText.text = "1.0.0"
         }
 
-        // Logout button
-        val logoutButton = findViewById<Button>(R.id.btn_logout)
-        logoutButton.setOnClickListener {
+        // Logout
+        findViewById<Button>(R.id.btn_logout).setOnClickListener {
             showLogoutDialog()
         }
 
-        // Currency selection - NOW WORKING
+        // Currency Setting
         val currencyText = findViewById<TextView>(R.id.setting_currency)
-
-        // Load saved currency to display
-        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-        selectedCurrency = prefs.getString("currency", "₹") ?: "₹"
         currencyText.text = "💱  Currency ($selectedCurrency)"
-
         currencyText.setOnClickListener {
             showCurrencyDialog(currencyText)
+        }
+
+        // Theme Setting (Dark Mode)
+        findViewById<TextView>(R.id.setting_theme).setOnClickListener {
+            showThemeDialog()
         }
 
         // About
         findViewById<TextView>(R.id.setting_about).setOnClickListener {
             showAboutDialog()
-        }
-
-        // Privacy Policy
-        findViewById<TextView>(R.id.setting_privacy).setOnClickListener {
-            Toast.makeText(this, "Privacy Policy (Coming Soon!)", Toast.LENGTH_SHORT).show()
         }
 
         // Clear Data
@@ -81,22 +73,65 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun loadUserData() {
         lifecycleScope.launch {
-            try {
-                val user = database.userDao().getUserById(userId)
-
-                if (user != null) {
-                    // Display user info
-                    findViewById<TextView>(R.id.tv_user_name).text = user.name
-                    findViewById<TextView>(R.id.tv_user_contact).text =
-                        if (user.loginMethod == "phone") user.phone else user.email
-                } else {
-                    findViewById<TextView>(R.id.tv_user_name).text = "User"
-                    findViewById<TextView>(R.id.tv_user_contact).text = "No contact info"
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@SettingsActivity, "Error loading user data", Toast.LENGTH_SHORT).show()
+            val user = database.userDao().getUserById(userId)
+            if (user != null) {
+                findViewById<TextView>(R.id.tv_user_name).text = user.name
+                findViewById<TextView>(R.id.tv_user_contact).text =
+                    if (user.loginMethod == "phone") user.phone else user.email
             }
         }
+    }
+
+    private fun showCurrencyDialog(textView: TextView) {
+        val currencies = arrayOf("₹ (INR)", "$ (USD)", "€ (EUR)", "£ (GBP)", "¥ (JPY)")
+        val symbols = arrayOf("₹", "$", "€", "£", "¥")
+        var checkedItem = symbols.indexOf(selectedCurrency)
+        if (checkedItem == -1) checkedItem = 0
+
+        AlertDialog.Builder(this)
+            .setTitle("Select Currency")
+            .setSingleChoiceItems(currencies, checkedItem) { dialog, which ->
+                selectedCurrency = symbols[which]
+                val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+                prefs.edit().putString("currency", selectedCurrency).apply()
+
+                textView.text = "𒒱  Currency ($selectedCurrency)"
+                Toast.makeText(this, "Currency set to $selectedCurrency", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showThemeDialog() {
+        val themes = arrayOf("Light", "Dark", "System Default")
+        // Logic to determine checked item (omitted for brevity, keep existing)
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose Theme")
+            .setSingleChoiceItems(themes, -1) { dialog, which ->
+                val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+                val editor = prefs.edit()
+
+                when (which) {
+                    0 -> {
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                        editor.putInt("theme_mode", AppCompatDelegate.MODE_NIGHT_NO)
+                    }
+                    1 -> {
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                        editor.putInt("theme_mode", AppCompatDelegate.MODE_NIGHT_YES)
+                    }
+                    2 -> {
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                        editor.putInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                    }
+                }
+                editor.apply()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showLogoutDialog() {
@@ -104,96 +139,38 @@ class SettingsActivity : AppCompatActivity() {
             .setTitle("Logout")
             .setMessage("Are you sure you want to logout?")
             .setPositiveButton("Logout") { _, _ ->
-                performLogout()
+                val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+                prefs.edit().putBoolean("isLoggedIn", false).apply()
+
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
             }
             .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun performLogout() {
-        // Clear login status
-        val sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putBoolean("isLoggedIn", false)
-        editor.apply()
-
-        // Show message
-        Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show()
-
-        // Go to Login screen
-        val intent = Intent(this, LoginActivity::class.java) // CHANGE THIS
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
-    }
-
-    private fun showAboutDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("About SpendSense")
-            .setMessage("SpendSense v1.0.0\n\nA simple and elegant expense tracker to help you manage your money smartly.\n\n© 2025 SpendSense")
-            .setPositiveButton("OK", null)
             .show()
     }
 
     private fun showClearDataDialog() {
         AlertDialog.Builder(this)
             .setTitle("Clear All Data")
-            .setMessage("This will delete all your transactions and budgets. This action cannot be undone. Are you sure?")
+            .setMessage("This will delete ALL transactions permanently. Are you sure?")
             .setPositiveButton("Clear") { _, _ ->
-                clearAllData()
+                lifecycleScope.launch {
+                    database.transactionDao().deleteAllTransactions(userId)
+                    Toast.makeText(this@SettingsActivity, "Data Cleared", Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun showCurrencyDialog(textView: TextView) {
-        val currencies = arrayOf("₹ (INR)", "$ (USD)", "€ (EUR)", "£ (GBP)", "¥ (JPY)")
-        val symbols = arrayOf("₹", "$", "€", "£", "¥")
-
-        // Find current selection index
-        var checkedItem = symbols.indexOf(selectedCurrency)
-        if (checkedItem == -1) checkedItem = 0 // Default to first if not found
-
+    private fun showAboutDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Select Currency")
-            .setSingleChoiceItems(currencies, checkedItem) { dialog, which ->
-                // Update variable
-                selectedCurrency = symbols[which]
-
-                // Save to SharedPreferences
-                val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-                val editor = prefs.edit()
-                editor.putString("currency", selectedCurrency)
-                editor.apply()
-
-                // Update UI text immediately
-                textView.text = "💱  Currency ($selectedCurrency)"
-
-                Toast.makeText(this, "Currency set to $selectedCurrency", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
+            .setTitle("About SpendSense")
+            .setMessage("SpendSense v1.0.0\n\nSmart Expense Tracker\n\n© 2025 SpendSense")
+            .setPositiveButton("OK", null)
             .show()
-    }
-    private fun clearAllData() {
-        lifecycleScope.launch {
-            try {
-                // Delete all user's transactions
-                database.transactionDao().deleteAllTransactions(userId)
-
-                Toast.makeText(
-                    this@SettingsActivity,
-                    "All data cleared successfully",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } catch (e: Exception) {
-                Toast.makeText(
-                    this@SettingsActivity,
-                    "Error clearing data: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
     }
 
     override fun onSupportNavigateUp(): Boolean {

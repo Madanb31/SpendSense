@@ -1,5 +1,6 @@
 package com.example.spendsense
 
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,7 +9,6 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -17,7 +17,6 @@ import com.example.spendsense.database.Category
 import com.example.spendsense.database.Transaction
 import com.example.spendsense.network.RetrofitClient
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.datepicker.MaterialDatePicker
@@ -32,14 +31,15 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
     private lateinit var database: AppDatabase
     private var selectedType = "expense"
     private var selectedCategory: Category? = null
-
-    // Date Variable (Default to Now)
     private var selectedDate: Long = System.currentTimeMillis()
 
-    // Edit Mode Variables
     private var transactionId: Int = 0
     private var isEditMode = false
 
+    // Force the Transparent Theme
+    override fun getTheme(): Int {
+        return R.style.BottomSheetDialogTheme
+    }
     companion object {
         fun newInstance(transaction: Transaction? = null): AddTransactionBottomSheet {
             val fragment = AddTransactionBottomSheet()
@@ -75,7 +75,6 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             selectedDate = args.getLong("date")
         }
 
-        val toggleGroup = view.findViewById<MaterialButtonToggleGroup>(R.id.toggle_transaction_type)
         val btnExpense = view.findViewById<Button>(R.id.btn_expense)
         val btnIncome = view.findViewById<Button>(R.id.btn_income)
         val etAmount = view.findViewById<TextInputEditText>(R.id.et_amount)
@@ -83,40 +82,30 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
         val etDescription = view.findViewById<TextInputEditText>(R.id.et_description)
         val chipGroup = view.findViewById<ChipGroup>(R.id.chip_group_categories)
         val btnSave = view.findViewById<Button>(R.id.btn_save_transaction)
-
-        // --- CURRENCY LOGIC START ---
         val spinnerCurrency = view.findViewById<Spinner>(R.id.spinner_currency)
         val btnConvert = view.findViewById<ImageButton>(R.id.btn_convert)
 
-        // 1. Setup Spinner with Major Currencies AND Custom Layout
+        // 1. Setup Spinner
         val currencies = arrayOf("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED", "CNY")
-
-        // FIX: Use R.layout.spinner_item for visible text color
         val adapter = ArrayAdapter(requireContext(), R.layout.spinner_item, currencies)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerCurrency.adapter = adapter
 
-        // 2. Handle Convert Button
+        // 2. Handle Convert
         btnConvert.setOnClickListener {
             val amountText = etAmount.text.toString()
-            if (amountText.isEmpty()) {
+            if (amountText.isNotEmpty()) {
+                val amount = amountText.toDouble()
+                val selectedCurrency = spinnerCurrency.selectedItem.toString()
+                if (selectedCurrency != "INR") {
+                    convertCurrency(amount, selectedCurrency, "INR", etAmount)
+                } else {
+                    Toast.makeText(context, "Already in INR", Toast.LENGTH_SHORT).show()
+                }
+            } else {
                 Toast.makeText(context, "Enter amount first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
             }
-
-            val amount = amountText.toDouble()
-            val selectedCurrency = spinnerCurrency.selectedItem.toString()
-            val targetCurrency = "INR"
-
-            if (selectedCurrency == targetCurrency) {
-                Toast.makeText(context, "Already in INR", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            // Call API
-            convertCurrency(amount, selectedCurrency, targetCurrency, etAmount)
         }
-        // --- CURRENCY LOGIC END ---
 
         // Set Date Field Text
         val dateFormat = SimpleDateFormat("EEE, MMM dd yyyy", Locale.getDefault())
@@ -133,7 +122,6 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                 selectedDate = selection
                 etDate.setText(dateFormat.format(Date(selectedDate)))
             }
-
             datePicker.show(parentFragmentManager, "DATE_PICKER")
         }
 
@@ -147,9 +135,7 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             val type = args.getString("type") ?: "expense"
             selectedType = type
 
-            if (type == "income") toggleGroup.check(R.id.btn_income)
-            else toggleGroup.check(R.id.btn_expense)
-
+            // Set initial selected category object
             selectedCategory = Category(
                 id = args.getInt("catId"),
                 name = args.getString("catName") ?: "",
@@ -159,20 +145,21 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
             )
         }
 
+        // Initial UI State
         updateToggleUI(btnExpense, btnIncome, selectedType == "expense")
         loadCategories(chipGroup, selectedType)
 
-        toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) {
-                if (checkedId == R.id.btn_expense) {
-                    selectedType = "expense"
-                    updateToggleUI(btnExpense, btnIncome, true)
-                } else {
-                    selectedType = "income"
-                    updateToggleUI(btnExpense, btnIncome, false)
-                }
-                loadCategories(chipGroup, selectedType)
-            }
+        // --- NEW TOGGLE LOGIC (Simple Buttons) ---
+        btnExpense.setOnClickListener {
+            selectedType = "expense"
+            updateToggleUI(btnExpense, btnIncome, true)
+            loadCategories(chipGroup, "expense")
+        }
+
+        btnIncome.setOnClickListener {
+            selectedType = "income"
+            updateToggleUI(btnExpense, btnIncome, false)
+            loadCategories(chipGroup, "income")
         }
 
         btnSave.setOnClickListener {
@@ -188,42 +175,35 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private fun convertCurrency(amount: Double, from: String, to: String, etAmount: TextInputEditText) {
-        Toast.makeText(context, "Converting...", Toast.LENGTH_SHORT).show()
-
-        lifecycleScope.launch {
-            try {
-                // Call API using Retrofit
-                val response = RetrofitClient.api.getRates(from, to, amount)
-                val convertedAmount = response.rates[to]
-
-                if (convertedAmount != null) {
-                    etAmount.setText(String.format("%.2f", convertedAmount))
-                    // FIX: Removed the long Toast message
-                } else {
-                    Toast.makeText(context, "Conversion failed", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(context, "Network Error: Check Internet", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun updateToggleUI(btnExpense: Button, btnIncome: Button, isExpense: Boolean) {
-        val red = ContextCompat.getColor(requireContext(), android.R.color.holo_red_light)
-        val green = ContextCompat.getColor(requireContext(), android.R.color.holo_green_light)
         val white = ContextCompat.getColor(requireContext(), android.R.color.white)
 
-        if (isExpense) {
-            btnExpense.setBackgroundColor(red)
-            btnExpense.setTextColor(white)
-            btnIncome.setBackgroundColor(white)
-            btnIncome.setTextColor(green)
+        // Determine unselected text color based on UI Mode
+        val nightModeFlags = requireContext().resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val isNightMode = nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        val unselectedTextColor = if (isNightMode) {
+            Color.LTGRAY // Light Gray for Night Mode (visible on dark)
         } else {
-            btnExpense.setBackgroundColor(white)
-            btnExpense.setTextColor(red)
-            btnIncome.setBackgroundColor(green)
+            Color.DKGRAY // Dark Gray for Day Mode (visible on light)
+        }
+
+        if (isExpense) {
+            // EXPENSE SELECTED
+            btnExpense.setBackgroundResource(R.drawable.toggle_btn_selected_red)
+            btnExpense.setTextColor(white)
+
+            // INCOME UNSELECTED
+            btnIncome.setBackgroundResource(R.drawable.toggle_btn_unselected)
+            btnIncome.setTextColor(unselectedTextColor)
+        } else {
+            // EXPENSE UNSELECTED
+            btnExpense.setBackgroundResource(R.drawable.toggle_btn_unselected)
+            btnExpense.setTextColor(unselectedTextColor)
+
+            // INCOME SELECTED
+            btnIncome.setBackgroundResource(R.drawable.toggle_btn_selected_green)
             btnIncome.setTextColor(white)
         }
     }
@@ -247,6 +227,24 @@ class AddTransactionBottomSheet : BottomSheetDialogFragment() {
                     }
                     chipGroup.addView(chip)
                 }
+            }
+        }
+    }
+
+    private fun convertCurrency(amount: Double, from: String, to: String, etAmount: TextInputEditText) {
+        Toast.makeText(context, "Converting...", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.api.getRates(from, to, amount)
+                val convertedAmount = response.rates[to]
+                if (convertedAmount != null) {
+                    etAmount.setText(String.format("%.2f", convertedAmount))
+                } else {
+                    Toast.makeText(context, "Conversion failed", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Network Error", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -28,38 +28,40 @@
             android:text="Add Transaction"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#333333"
+            android:textColor="@color/text_primary"
             android:layout_marginBottom="24dp"/>
 
         <!-- Transaction Type Toggle -->
-        <com.google.android.material.button.MaterialButtonToggleGroup
+        <LinearLayout
             android:id="@+id/toggle_transaction_type"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:singleSelection="true"
-            app:selectionRequired="true"
-            app:checkedButton="@id/btn_expense"
+            android:layout_height="50dp"
+            android:orientation="horizontal"
+            android:background="@drawable/toggle_bg"
+            android:padding="2dp"
             android:layout_marginBottom="16dp">
 
             <Button
                 android:id="@+id/btn_expense"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:text="Expense"
-                android:backgroundTint="#F44336"
-                android:textColor="#FFFFFF"/>
+                android:textColor="#FFFFFF"
+                android:background="@drawable/toggle_btn_selected_red"
+                app:backgroundTint="@null" />  <!-- IMPORTANT FIX -->
 
             <Button
                 android:id="@+id/btn_income"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:text="Income"
-                android:backgroundTint="#FFFFFF"
-                android:textColor="#4CAF50"/>
+                android:textColor="#666666"
+                android:background="@drawable/toggle_btn_unselected"
+                app:backgroundTint="@null" />  <!-- IMPORTANT FIX -->
 
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+        </LinearLayout>
 
         <!-- Amount & Currency Row -->
         <LinearLayout
@@ -95,7 +97,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="numberDecimal"
-                    android:textColor="#333333"/>
+                    android:textColor="@color/text_primary"/>
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -122,7 +124,7 @@
             app:boxStrokeColor="#4CAF50"
             app:boxStrokeWidth="1dp"
             app:boxStrokeWidthFocused="2dp"
-            app:boxBackgroundColor="#FFFFFF"
+            app:boxBackgroundColor="@color/surface_color"
             app:hintTextColor="#4CAF50"
             app:startIconDrawable="@android:drawable/ic_menu_my_calendar"
             app:startIconTint="#4CAF50"
@@ -136,7 +138,7 @@
                 android:focusable="false"
                 android:clickable="true"
                 android:text="Today"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -150,7 +152,7 @@
             app:boxStrokeColor="#4CAF50"
             app:boxStrokeWidth="1dp"
             app:boxStrokeWidthFocused="2dp"
-            app:boxBackgroundColor="#FFFFFF"
+            app:boxBackgroundColor="@color/surface_color"
             app:hintTextColor="#4CAF50"
             app:startIconDrawable="@drawable/ic_transactions"
             app:startIconTint="#4CAF50"
@@ -161,7 +163,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textCapSentences"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -170,7 +172,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Select Category"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="8dp"/>
 
         <HorizontalScrollView

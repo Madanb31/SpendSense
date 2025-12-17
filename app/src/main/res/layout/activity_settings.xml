@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="@color/app_background">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,7 +18,7 @@
             android:layout_margin="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
-            android:backgroundTint="#FFFFFF">
+            android:background="@color/app_background">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -49,7 +49,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="User Name"
-                        android:textColor="#333333"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold"/>
 
@@ -58,7 +58,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="user@email.com"
-                        android:textColor="#666666"
+                        android:textColor="@color/text_secondary"
                         android:textSize="14sp"
                         android:layout_marginTop="4dp"/>
 
@@ -73,7 +73,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Preferences"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_marginStart="16dp"
@@ -88,7 +88,7 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
-            android:backgroundTint="#FFFFFF">
+            android:background="@color/app_background">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -101,7 +101,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="💱  Currency"
-                    android:textColor="#333333"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:padding="16dp"
                     android:background="?attr/selectableItemBackground"/>
@@ -109,15 +109,16 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#EEEEEE"
+                    android:background="@color/divider_color"
                     android:layout_marginStart="16dp"/>
 
-                <!-- Budget Settings -->
+                <!-- Theme Selection -->
                 <TextView
+                    android:id="@+id/setting_theme"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="💰  Monthly Budget"
-                    android:textColor="#333333"
+                    android:text="🌙  App Theme"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:padding="16dp"
                     android:background="?attr/selectableItemBackground"/>
@@ -125,7 +126,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#EEEEEE"
+                    android:background="@color/divider_color"
                     android:layout_marginStart="16dp"/>
 
                 <!-- Notifications -->
@@ -133,7 +134,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="🔔  Notifications"
-                    android:textColor="#333333"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:padding="16dp"
                     android:background="?attr/selectableItemBackground"/>
@@ -147,7 +148,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="About"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_marginStart="16dp"
@@ -161,7 +162,7 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
-            android:backgroundTint="#FFFFFF">
+            android:background="@color/app_background">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -174,7 +175,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="ℹ️  About SpendSense"
-                    android:textColor="#333333"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:padding="16dp"
                     android:background="?attr/selectableItemBackground"/>
@@ -182,7 +183,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#EEEEEE"
+                    android:background="@color/divider_color"
                     android:layout_marginStart="16dp"/>
 
                 <!-- Privacy Policy -->
@@ -191,7 +192,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="🔒  Privacy Policy"
-                    android:textColor="#333333"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:padding="16dp"
                     android:background="?attr/selectableItemBackground"/>
@@ -199,7 +200,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#EEEEEE"
+                    android:background="@color/divider_color"
                     android:layout_marginStart="16dp"/>
 
                 <!-- App Version -->
@@ -215,7 +216,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="📱  App Version"
-                        android:textColor="#333333"
+                        android:textColor="@color/text_primary"
                         android:textSize="16sp"/>
 
                     <TextView
@@ -223,7 +224,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="1.0.0"
-                        android:textColor="#999999"
+                        android:textColor="@color/text_secondary"
                         android:textSize="14sp"/>
 
                 </LinearLayout>
@@ -237,7 +238,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Data"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_marginStart="16dp"
@@ -251,7 +252,7 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
-            android:backgroundTint="#FFFFFF">
+            android:background="@color/app_background">
 
             <LinearLayout
                 android:layout_width="match_parent"

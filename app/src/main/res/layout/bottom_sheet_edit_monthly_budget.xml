@@ -13,7 +13,7 @@
         android:text="Set Monthly Budget"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="@color/text_primary"
         android:layout_marginBottom="24dp"/>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -25,7 +25,7 @@
         app:boxStrokeColor="#4CAF50"
         app:boxStrokeWidth="1dp"
         app:boxStrokeWidthFocused="2dp"
-        app:boxBackgroundColor="#FFFFFF"
+        app:boxBackgroundColor="@color/surface_color"
         app:hintTextColor="#4CAF50"
         app:startIconDrawable="@drawable/ic_budget"
         app:startIconTint="#4CAF50"
@@ -36,7 +36,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="numberDecimal"
-            android:textColor="#333333"/>
+            android:textColor="@color/text_primary"/>
 
     </com.google.android.material.textfield.TextInputLayout>
 

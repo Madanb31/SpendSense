@@ -21,7 +21,7 @@
         android:text="Set Category Budget"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="@color/text_primary"
         android:layout_marginBottom="24dp"/>
 
     <!-- Category Selection -->
@@ -29,7 +29,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Select Category"
-        android:textColor="#666666"
+        android:textColor="@color/text_secondary"
         android:layout_marginBottom="8dp"/>
 
     <HorizontalScrollView
@@ -60,7 +60,7 @@
         app:boxStrokeColor="#4CAF50"
         app:boxStrokeWidth="1dp"
         app:boxStrokeWidthFocused="2dp"
-        app:boxBackgroundColor="#FFFFFF"
+        app:boxBackgroundColor="@color/surface_color"
         app:hintTextColor="#4CAF50"
         app:startIconTint="#4CAF50"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
@@ -70,7 +70,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="numberDecimal"
-            android:textColor="#333333"/>
+            android:textColor="@color/text_primary"/>
 
     </com.google.android.material.textfield.TextInputLayout>
 

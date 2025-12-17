@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/app_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:text="Manage Your Money Smartly"
             android:textSize="16sp"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="48dp"/>
 
         <!-- Name Input -->
@@ -60,7 +60,7 @@
                 android:inputType="textPersonName"
                 android:drawableStart="@android:drawable/ic_menu_myplaces"
                 android:drawablePadding="12dp"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -70,7 +70,7 @@
             android:layout_height="wrap_content"
             android:text="Choose Login Method:"
             android:textSize="14sp"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="12dp"/>
 
         <RadioGroup
@@ -86,7 +86,7 @@
                 android:layout_weight="1"
                 android:text="📱 Phone"
                 android:checked="true"
-                android:textColor="#333333"
+                android:textColor="@color/text_primary"
                 android:buttonTint="#4CAF50"/>
 
             <RadioButton
@@ -95,7 +95,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="📧 Gmail"
-                android:textColor="#333333"
+                android:textColor="@color/text_primary"
                 android:buttonTint="#4CAF50"/>
 
         </RadioGroup>
@@ -118,7 +118,7 @@
                 android:inputType="phone"
                 android:drawableStart="@android:drawable/sym_action_call"
                 android:drawablePadding="12dp"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -141,7 +141,7 @@
                 android:drawableStart="@android:drawable/ic_dialog_email"
                 android:drawablePadding="12dp"
                 android:visibility="gone"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -165,7 +165,7 @@
                 android:inputType="textPassword"
                 android:drawableStart="@android:drawable/ic_lock_lock"
                 android:drawablePadding="12dp"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -188,7 +188,7 @@
                 android:inputType="textPassword"
                 android:drawableStart="@android:drawable/ic_lock_lock"
                 android:drawablePadding="12dp"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -209,7 +209,7 @@
             android:layout_height="wrap_content"
             android:text="By continuing, you agree to our Terms &amp; Privacy Policy"
             android:textSize="11sp"
-            android:textColor="#999999"
+            android:textColor="@color/text_secondary"
             android:gravity="center"
             android:layout_marginTop="24dp"/>
 
