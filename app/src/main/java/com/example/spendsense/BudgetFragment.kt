@@ -110,34 +110,39 @@ class BudgetFragment : Fragment() {
     }
 
     private suspend fun calculateBudgets(transactions: List<Transaction>) {
-        withContext(Dispatchers.Default) {
-            // 1. Calculate Total Expenses
-            val expenses = transactions.filter { it.type == "expense" }
-            val totalSpent = expenses.sumOf { it.amount }
+        // 1. Read the saved budget directly here (Thread-safe read)
+        val prefs = requireContext().getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val savedLimit = prefs.getFloat("monthly_budget_$userId", 0f).toDouble()
 
-            // Monthly Limit Logic
+        withContext(Dispatchers.Default) {
             val totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
-            val activeBudgetLimit = if (manualMonthlyLimit > 0) {
-                manualMonthlyLimit
+
+            // Logic: Use Saved Limit if > 0, else 60% of Income
+            val activeBudgetLimit = if (savedLimit > 0) {
+                savedLimit
             } else {
                 if (totalIncome > 0) totalIncome * 0.60 else 0.0
             }
 
+            // 2. Calculate Total Expenses
+            val expenses = transactions.filter { it.type == "expense" }
+            val totalSpent = expenses.sumOf { it.amount }
             val remaining = activeBudgetLimit - totalSpent
             val percentUsed = if (activeBudgetLimit > 0) (totalSpent / activeBudgetLimit * 100).toInt() else 0
 
-            // 2. Calculate Category Spending
-            val categorySpendingMap = expenses.groupBy { it.categoryName }
+            // 3. Category Breakdown
+            val categorySpending = expenses.groupBy { it.categoryName }
                 .mapValues { entry ->
                     val amt = entry.value.sumOf { it.amount }
                     val icon = entry.value.firstOrNull()?.categoryIcon ?: "🏷️"
                     Pair(amt, icon)
                 }
 
+            // 4. Update UI
             withContext(Dispatchers.Main) {
                 if (isAdded) {
                     updateSummaryUI(activeBudgetLimit, totalSpent, remaining, percentUsed)
-                    updateCategoryList(categorySpendingMap)
+                    updateCategoryList(categorySpending)
                 }
             }
         }
