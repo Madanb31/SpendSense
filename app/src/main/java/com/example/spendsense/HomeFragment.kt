@@ -115,15 +115,16 @@ class HomeFragment : Fragment() {
         val tvStatsTopAmount = view.findViewById<TextView>(R.id.tv_stats_top_amount)
         val tvStatsTopIcon = view.findViewById<TextView>(R.id.tv_stats_top_icon)
 
-        val symbol = CurrencyHelper.getSymbol(requireContext())
-
+        // 1. Balance & Totals (Using new Helper)
         val balance = income - expense
-        tvIncome.text = "$symbol${String.format("%.0f", income)}"
-        tvExpense.text = "$symbol${String.format("%.0f", expense)}"
-        tvBalance.text = "$symbol${String.format("%.2f", balance)}"
+        tvIncome.text = CurrencyHelper.format(requireContext(), income)
+        tvExpense.text = CurrencyHelper.format(requireContext(), expense)
+        tvBalance.text = CurrencyHelper.format(requireContext(), balance)
 
+        // 2. Transaction Count
         tvStatsCount.text = "${transactions.size}"
 
+        // 3. Top Spending Category
         val expenses = transactions.filter { it.type == "expense" }
         if (expenses.isNotEmpty()) {
             val topCategory = expenses.groupBy { it.categoryName }
@@ -132,10 +133,13 @@ class HomeFragment : Fragment() {
             if (topCategory != null) {
                 val amount = topCategory.value.sumOf { it.amount }
                 val icon = topCategory.value.first().categoryIcon
-                tvStatsTopAmount.text = "$symbol${String.format("%.0f", amount)}"
+
+                tvStatsTopAmount.text = CurrencyHelper.format(requireContext(), amount)
                 tvStatsTopIcon.text = icon
             }
         } else {
+            // Get symbol just for zero case
+            val symbol = CurrencyHelper.getSymbol(requireContext())
             tvStatsTopAmount.text = "${symbol}0"
             tvStatsTopIcon.text = "⭐"
         }

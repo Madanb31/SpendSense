@@ -34,9 +34,6 @@ class TransactionAdapter(
         val current = transactions[position]
         val context = holder.itemView.context
 
-        // Get Currency Symbol
-        val symbol = com.example.spendsense.utils.CurrencyHelper.getSymbol(context)
-
         holder.icon.text = current.categoryIcon
         holder.description.text = current.description
 
@@ -44,11 +41,14 @@ class TransactionAdapter(
         val dateString = dateFormat.format(Date(current.date))
         holder.categoryDate.text = "${current.categoryName} • $dateString"
 
+        // NEW: Use Helper for formatting
+        val formattedAmount = com.example.spendsense.utils.CurrencyHelper.format(context, current.amount)
+
         if (current.type == "expense") {
-            holder.amount.text = "- $symbol${String.format("%.0f", current.amount)}"
+            holder.amount.text = "- $formattedAmount"
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark))
         } else {
-            holder.amount.text = "+ $symbol${String.format("%.0f", current.amount)}"
+            holder.amount.text = "+ $formattedAmount"
             holder.amount.setTextColor(ContextCompat.getColor(context, android.R.color.holo_green_dark))
         }
 

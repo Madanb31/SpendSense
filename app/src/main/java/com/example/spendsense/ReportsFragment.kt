@@ -83,20 +83,19 @@ class ReportsFragment : Fragment() {
     }
 
     private fun calculateReports(view: View, transactions: List<Transaction>) {
-        val symbol = CurrencyHelper.getSymbol(requireContext())
-
         // 1. Totals
         totalIncome = transactions.filter { it.type == "income" }.sumOf { it.amount }
         totalExpense = transactions.filter { it.type == "expense" }.sumOf { it.amount }
         val savings = totalIncome - totalExpense
 
-        view.findViewById<TextView>(R.id.tv_income_val).text = "$symbol${String.format("%.0f", totalIncome)}"
-        view.findViewById<TextView>(R.id.tv_expense_val).text = "$symbol${String.format("%.0f", totalExpense)}"
-        view.findViewById<TextView>(R.id.tv_savings_val).text = "$symbol${String.format("%.0f", savings)}"
+        // FIX: Use CurrencyHelper.format()
+        view.findViewById<TextView>(R.id.tv_income_val).text = CurrencyHelper.format(requireContext(), totalIncome)
+        view.findViewById<TextView>(R.id.tv_expense_val).text = CurrencyHelper.format(requireContext(), totalExpense)
+        view.findViewById<TextView>(R.id.tv_savings_val).text = CurrencyHelper.format(requireContext(), savings)
 
         // 2. Chart Bar Logic
-        view.findViewById<TextView>(R.id.tv_chart_income).text = "$symbol${String.format("%.0f", totalIncome)}"
-        view.findViewById<TextView>(R.id.tv_chart_expense).text = "$symbol${String.format("%.0f", totalExpense)}"
+        view.findViewById<TextView>(R.id.tv_chart_income).text = CurrencyHelper.format(requireContext(), totalIncome)
+        view.findViewById<TextView>(R.id.tv_chart_expense).text = CurrencyHelper.format(requireContext(), totalExpense)
 
         val expenseBar = view.findViewById<View>(R.id.view_expense_bar)
         val expenseSpace = view.findViewById<Space>(R.id.view_expense_space)
@@ -111,7 +110,6 @@ class ReportsFragment : Fragment() {
             paramsSpace.weight = (1.0f - expenseWeight).coerceAtLeast(0.0f)
             expenseSpace.layoutParams = paramsSpace
         } else {
-            // Handle 0 income case (avoid divide by zero visual)
             val paramsBar = expenseBar.layoutParams as LinearLayout.LayoutParams
             paramsBar.weight = if (totalExpense > 0) 1.0f else 0.0f
             expenseBar.layoutParams = paramsBar
@@ -137,7 +135,10 @@ class ReportsFragment : Fragment() {
             for ((name, amount) in categoryData) {
                 val percent = if (totalExpense > 0) (amount / totalExpense * 100).toInt() else 0
                 val row = TextView(context)
-                row.text = "$name: $symbol${String.format("%.0f", amount)} ($percent%)"
+
+                // FIX: Use CurrencyHelper.format()
+                row.text = "$name: ${CurrencyHelper.format(requireContext(), amount)} ($percent%)"
+
                 row.textSize = 14f
                 row.setPadding(0, 8, 0, 8)
                 row.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_primary))
@@ -165,7 +166,10 @@ class ReportsFragment : Fragment() {
         } else {
             for ((date, amount) in topDaysData) {
                 val row = TextView(context)
-                row.text = "$date: $symbol${String.format("%.0f", amount)}"
+
+                // FIX: Use CurrencyHelper.format()
+                row.text = "$date: ${CurrencyHelper.format(requireContext(), amount)}"
+
                 row.textSize = 14f
                 row.setPadding(0, 8, 0, 8)
                 row.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_primary))
@@ -174,40 +178,37 @@ class ReportsFragment : Fragment() {
         }
 
         // 5. Financial Insights Logic
-        val expensesOnly = transactions.filter { it.type == "expense" }
-
-        // A. Daily Average
-        // Get current day of month (e.g., if today is 5th, divide by 5)
         val calendar = java.util.Calendar.getInstance()
         val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
         val dailyAvg = if (currentDay > 0) totalExpense / currentDay else 0.0
 
-        view.findViewById<TextView>(R.id.tv_insight_avg).text = "$symbol${String.format("%.0f", dailyAvg)} / day"
+        view.findViewById<TextView>(R.id.tv_insight_avg).text = "${CurrencyHelper.format(requireContext(), dailyAvg)} / day"
 
-        // B. Highest Spend
-        val maxTransaction = expensesOnly.maxByOrNull { it.amount }
+        val maxTransaction = expenses.maxByOrNull { it.amount }
         if (maxTransaction != null) {
             view.findViewById<TextView>(R.id.tv_insight_max).text =
-                "$symbol${String.format("%.0f", maxTransaction.amount)} (${maxTransaction.categoryName})"
+                "${CurrencyHelper.format(requireContext(), maxTransaction.amount)} (${maxTransaction.categoryName})"
         } else {
             view.findViewById<TextView>(R.id.tv_insight_max).text = "None"
         }
 
-        // C. Total Count
         view.findViewById<TextView>(R.id.tv_insight_count).text = "${transactions.size} Records"
-
     }
 
     private fun shareReport() {
-        val symbol = CurrencyHelper.getSymbol(requireContext())
+        val context = requireContext()
+        val formattedIncome = CurrencyHelper.format(context, totalIncome)
+        val formattedExpense = CurrencyHelper.format(context, totalExpense)
+        val formattedSavings = CurrencyHelper.format(context, totalIncome - totalExpense)
+
         val reportText = """
             📊 SpendSense Report
-            Income: $symbol$totalIncome
-            Expense: $symbol$totalExpense
-            Savings: $symbol${totalIncome - totalExpense}
+            Income: $formattedIncome
+            Expense: $formattedExpense
+            Savings: $formattedSavings
             
             Top Categories:
-            ${categoryData.take(3).joinToString("\n") { "${it.first}: $symbol${it.second}" }}
+            ${categoryData.take(3).joinToString("\n") { "${it.first}: ${CurrencyHelper.format(context, it.second)}" }}
         """.trimIndent()
 
         val shareIntent = Intent().apply {
@@ -221,8 +222,6 @@ class ReportsFragment : Fragment() {
 
     private fun exportToPdf() {
         try {
-            val symbol = CurrencyHelper.getSymbol(requireContext())
-
             val fileName = "SpendSense_Report_${System.currentTimeMillis()}.pdf"
             val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
             val pdfWriter = PdfWriter(file)
@@ -231,9 +230,12 @@ class ReportsFragment : Fragment() {
 
             document.add(Paragraph("SpendSense Report").setFontSize(24f).setBold())
             document.add(Paragraph("\nFinancial Summary").setFontSize(18f).setBold())
-            document.add(Paragraph("Income: $symbol$totalIncome"))
-            document.add(Paragraph("Expense: $symbol$totalExpense"))
-            document.add(Paragraph("Savings: $symbol${totalIncome - totalExpense}"))
+
+            // FIX: Use Helper
+            val context = requireContext()
+            document.add(Paragraph("Income: ${CurrencyHelper.format(context, totalIncome)}"))
+            document.add(Paragraph("Expense: ${CurrencyHelper.format(context, totalExpense)}"))
+            document.add(Paragraph("Savings: ${CurrencyHelper.format(context, totalIncome - totalExpense)}"))
 
             document.add(Paragraph("\nSpending by Category").setFontSize(18f).setBold())
             val table = Table(2)
@@ -241,7 +243,7 @@ class ReportsFragment : Fragment() {
             table.addCell(Paragraph("Amount").setBold())
             for ((name, amount) in categoryData) {
                 table.addCell(name)
-                table.addCell("$symbol$amount")
+                table.addCell(CurrencyHelper.format(context, amount))
             }
             document.add(table)
 
