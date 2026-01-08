@@ -129,15 +129,7 @@
                     android:background="@color/divider_color"
                     android:layout_marginStart="16dp"/>
 
-                <!-- Notifications -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🔔  Notifications"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"/>
+
 
             </LinearLayout>
 

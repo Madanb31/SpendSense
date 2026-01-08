@@ -60,6 +60,11 @@ class SettingsActivity : AppCompatActivity() {
             showThemeDialog()
         }
 
+        // Privacy Policy - NOW WORKING
+        findViewById<TextView>(R.id.setting_privacy).setOnClickListener {
+            showPrivacyDialog()
+        }
+
         // About
         findViewById<TextView>(R.id.setting_about).setOnClickListener {
             showAboutDialog()
@@ -131,6 +136,36 @@ class SettingsActivity : AppCompatActivity() {
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showPrivacyDialog() {
+        val privacyText = """
+            **Privacy Policy**
+            
+            Last updated: 2026
+            
+            **1. Data Storage**
+            SpendSense stores all your financial data locally on your device using a secure database. We do not upload your data to any cloud servers.
+            
+            **2. User Information**
+            We collect your name and contact information solely for personalization within the app.
+            
+            **3. Permissions**
+            - Internet: Used only for currency conversion rates.
+            - Storage: Used for exporting PDF reports.
+            
+            **4. Security**
+            Since data is stored locally, it is as secure as your device. We recommend using a device lock.
+            
+            **5. Contact**
+            For questions, contact support@spendsense.com.
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Privacy Policy")
+            .setMessage(privacyText)
+            .setPositiveButton("Close", null)
             .show()
     }
 
