@@ -69,7 +69,7 @@ class LoginActivity : AppCompatActivity() {
     private fun performLogin(identifier: String, password: String, isPhoneLogin: Boolean) {
         lifecycleScope.launch {
             try {
-                // Find user in database
+                // 1. Find user in database
                 val user = if (isPhoneLogin) {
                     database.userDao().getUserByPhone(identifier)
                 } else {
@@ -77,17 +77,20 @@ class LoginActivity : AppCompatActivity() {
                 }
 
                 if (user == null) {
-                    Toast.makeText(this@LoginActivity, "No account found with this ${if (isPhoneLogin) "phone number" else "email"}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@LoginActivity, "No account found", Toast.LENGTH_LONG).show()
                     return@launch
                 }
 
-                // Check password
-                if (user.password != password) {
+                // 2. HASH INPUT PASSWORD FIRST
+                val hashedInput = com.example.spendsense.utils.SecurityHelper.hashPassword(password)
+
+                // 3. COMPARE HASHES (Stored Hash vs Input Hash)
+                if (user.password != hashedInput) {
                     Toast.makeText(this@LoginActivity, "Incorrect password", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 
-                // Login successful
+                // 4. Login Successful - Save Session
                 val sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE)
                 val editor = sharedPreferences.edit()
                 editor.putInt("userId", user.id)
@@ -96,9 +99,10 @@ class LoginActivity : AppCompatActivity() {
 
                 Toast.makeText(this@LoginActivity, "Welcome back, ${user.name}!", Toast.LENGTH_SHORT).show()
 
+                // 5. Navigate
                 val intent = Intent(this@LoginActivity, MainActivity::class.java)
                 startActivity(intent)
-                finishAffinity() // Clear all previous activities (like signup)
+                finishAffinity()
 
             } catch (e: Exception) {
                 Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()

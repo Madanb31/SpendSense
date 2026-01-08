@@ -80,16 +80,29 @@ class SignupActivity : AppCompatActivity() {
     private fun saveUserToDatabase(name: String, phone: String, email: String, password: String, loginMethod: String) {
         lifecycleScope.launch {
             try {
-                // Check if user already exists
+                // 1. Check if user already exists
                 val existingUser = if (loginMethod == "email") database.userDao().getUserByEmail(email) else database.userDao().getUserByPhone(phone)
                 if (existingUser != null) {
                     Toast.makeText(this@SignupActivity, "An account with this ${loginMethod} already exists.", Toast.LENGTH_LONG).show()
                     return@launch
                 }
 
-                val user = User(name = name, email = email, phone = phone, password = password, loginMethod = loginMethod)
+                // 2. HASH THE PASSWORD FIRST!
+                val hashedPassword = com.example.spendsense.utils.SecurityHelper.hashPassword(password)
+
+                // 3. Create User object with HASHED password
+                val user = User(
+                    name = name,
+                    email = email,
+                    phone = phone,
+                    password = hashedPassword, // Store the hash, NOT the plain text
+                    loginMethod = loginMethod
+                )
+
+                // 4. Save to Database
                 val userId = database.userDao().insertUser(user)
 
+                // 5. Save Session
                 val sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE)
                 val editor = sharedPreferences.edit()
                 editor.putInt("userId", userId.toInt())
@@ -98,9 +111,11 @@ class SignupActivity : AppCompatActivity() {
 
                 Toast.makeText(this@SignupActivity, "Welcome, $name!", Toast.LENGTH_SHORT).show()
 
+                // 6. Navigate
                 val intent = Intent(this@SignupActivity, MainActivity::class.java)
                 startActivity(intent)
                 finish()
+
             } catch (e: Exception) {
                 Toast.makeText(this@SignupActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
